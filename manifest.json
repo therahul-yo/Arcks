@@ -1,0 +1,44 @@
+{
+  "manifest_version": 3,
+  "name": "Arcks",
+  "version": "1.0.0",
+  "description": "Arc-style AI link previews on hover",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "permissions": [
+    "activeTab",
+    "storage"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.google.com/search*",
+        "https://www.google.co.in/search*",
+        "https://www.google.co.uk/search*",
+        "https://www.google.ca/search*",
+        "https://www.google.com.au/search*",
+        "https://www.google.de/search*",
+        "https://www.google.fr/search*",
+        "https://www.google.es/search*",
+        "https://www.google.it/search*",
+        "https://www.google.co.jp/search*"
+      ],
+      "js": ["content.js"],
+      "css": ["styles.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": false
+  }
+}

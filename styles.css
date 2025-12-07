@@ -1,0 +1,12 @@
+/* Arcks - External styles (used for host page, not popup) */
+/* Main popup styles are in Shadow DOM in content.js */
+
+#arcks-popup-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  z-index: 2147483647;
+  pointer-events: none;
+}
