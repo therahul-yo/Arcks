@@ -2,7 +2,7 @@
 
 **Peek before you click.** Arcks is a browser extension that uses Google Gemini AI to provide instant, intelligent summaries of search results when you hover over them.
 
-![Arcks Preview](landing/preview.png)
+![Arcks Preview](landing/preview2.png)
 
 ## ✨ Features
 
@@ -47,7 +47,7 @@ The backend handles the API requests to Gemini securely.
 2.  Toggle **Developer mode** in the top right.
 3.  Click **Load unpacked**.
 4.  Select the `arcks` folder from this repository.
-5.  **Copy the generated Extension ID** from the card (e.g., `fnjfkaalieomllbcjkbahknaamhecojg`).
+5.  **Copy the generated Extension ID** from the card (e.g., `anjfjhjgjoopullbcjkbmmkvcghgfhojg`).
 
 ### 3. Configuration
 
