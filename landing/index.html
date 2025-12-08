@@ -263,65 +263,91 @@
       z-index: 1;
     }
 
-    /* 6 cards, 6s each = 36s loop for gentler pace */
+    /* Professional Stack Animation */
+    /* 
+       6 Cards. Loop length = 24s (4s per card).
+       Each card goes through 6 stages of 16.66% duration.
+       Stages:
+       1. Active (Front): Scale 1, Y=0, Opacity 1.
+       2. Exit: Slide Up (-60px), Opacity 0.
+       3. Reset: Teleport to bottom/back (Y=40px, Scale 0.9).
+       4. Waiting: Move up slightly in stack (Y=20px, Scale 0.95).
+       5. Approaching: Prepare to become active.
+       6. Transition to Active.
+    */
     .card-img {
-      animation: cardCycle 36s infinite cubic-bezier(0.65, 0, 0.35, 1);
+      animation: stackCycle 24s infinite cubic-bezier(0.25, 1, 0.5, 1);
+      transform-origin: center bottom;
     }
 
-    /* Stagger delays */
+    /* Stagger delays (4s apart) */
     :nth-child(1) { animation-delay: 0s; }
-    :nth-child(2) { animation-delay: -6s; }
-    :nth-child(3) { animation-delay: -12s; }
-    :nth-child(4) { animation-delay: -18s; }
-    :nth-child(5) { animation-delay: -24s; }
-    :nth-child(6) { animation-delay: -30s; }
+    :nth-child(2) { animation-delay: -4s; }
+    :nth-child(3) { animation-delay: -8s; }
+    :nth-child(4) { animation-delay: -12s; }
+    :nth-child(5) { animation-delay: -16s; }
+    :nth-child(6) { animation-delay: -20s; }
 
-    /* 
-       Cycle Logic (N=6): 
-       100% / 6 = 16.66% per "slot".
-       Card is active (top) for ~16%.
-    */
-    @keyframes cardCycle {
-      0% {
+    @keyframes stackCycle {
+      /* STATE 1: Front (Active) */
+      0%, 12% {
         opacity: 1;
         transform: translateY(0) scale(1);
-        z-index: 6;
+        z-index: 10;
         filter: brightness(100%);
+        box-shadow: 0 30px 60px rgba(0,0,0,0.5);
       }
-      12% {
-        /* Hold position */
-        opacity: 1;
-        transform: translateY(0) scale(1);
-        z-index: 6;
-        filter: brightness(100%);
-      }
+      
+      /* TRANSITION: Exit Upwards */
       16.66% {
-        /* Drop out / Swap */
         opacity: 0;
-        transform: translateY(60px) scale(0.9);
-        z-index: 6;
-        filter: brightness(50%);
+        transform: translateY(-50px) scale(0.95);
+        z-index: 10;
+        filter: brightness(100%);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.2);
       }
-      17% {
-        /* Instantly move to back */
+      
+      /* STATE 2: Hidden Reset (Back of stack) */
+      16.67% {
         opacity: 0;
-        transform: translateY(-20px) scale(0.85);
+        transform: translateY(40px) scale(0.85); /* Start from below */
         z-index: 1;
-        filter: brightness(50%);
+        filter: brightness(30%);
       }
-      25% {
-        /* Start fading in at back */
+      
+      /* STATE 3: Enqueue (Back visible) */
+      20% {
         opacity: 1;
-        transform: translateY(-20px) scale(0.9);
-        z-index: 1;
-        filter: brightness(40%);
+        transform: translateY(30px) scale(0.9);
+        z-index: 2;
+        filter: brightness(50%);
+        box-shadow: 0 5px 15px rgba(0,0,0,0.3);
       }
+      
+      /* STATE 4: Move Forward (Middle of stack) */
+      33% {
+        opacity: 1;
+        transform: translateY(30px) scale(0.9);
+        z-index: 2;
+        filter: brightness(50%);
+      }
+      
+      /* STATE 5: Move Forward (Queue head) */
+      83% {
+        opacity: 1;
+        transform: translateY(15px) scale(0.95); /* Closer to front */
+        z-index: 5;
+        filter: brightness(80%);
+        box-shadow: 0 15px 40px rgba(0,0,0,0.4);
+      }
+      
+      /* STATE 6: Transition to Front */
       100% {
-        /* Gradual rise to front stack */
         opacity: 1;
         transform: translateY(0) scale(1);
-        z-index: 5;
+        z-index: 10;
         filter: brightness(100%);
+        box-shadow: 0 30px 60px rgba(0,0,0,0.5);
       }
     }
 
