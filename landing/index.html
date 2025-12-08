@@ -263,59 +263,64 @@
       z-index: 1;
     }
 
-    /* 6 cards, 5s each = 30s loop */
+    /* 6 cards, 6s each = 36s loop for gentler pace */
     .card-img {
-      animation: cardCycle 30s infinite cubic-bezier(0.4, 0.0, 0.2, 1);
+      animation: cardCycle 36s infinite cubic-bezier(0.65, 0, 0.35, 1);
     }
 
-    /* Stagger delays so one is always visible */
+    /* Stagger delays */
     :nth-child(1) { animation-delay: 0s; }
-    :nth-child(2) { animation-delay: -5s; }
-    :nth-child(3) { animation-delay: -10s; }
-    :nth-child(4) { animation-delay: -15s; }
-    :nth-child(5) { animation-delay: -20s; }
-    :nth-child(6) { animation-delay: -25s; }
+    :nth-child(2) { animation-delay: -6s; }
+    :nth-child(3) { animation-delay: -12s; }
+    :nth-child(4) { animation-delay: -18s; }
+    :nth-child(5) { animation-delay: -24s; }
+    :nth-child(6) { animation-delay: -30s; }
 
-    /* Cycle Animation for N=6 */
     /* 
-       0% - 13%: Active/Front
-       13% - 16%: Transition to back
-       16% - 100%: Wait in back
-       (100% -> 0% is the loop)
+       Cycle Logic (N=6): 
+       100% / 6 = 16.66% per "slot".
+       Card is active (top) for ~16%.
     */
     @keyframes cardCycle {
       0% {
         opacity: 1;
         transform: translateY(0) scale(1);
-        z-index: 10;
+        z-index: 6;
         filter: brightness(100%);
       }
-      15% {
+      12% {
+        /* Hold position */
         opacity: 1;
         transform: translateY(0) scale(1);
-        z-index: 10;
+        z-index: 6;
         filter: brightness(100%);
       }
-      20% {
-        opacity: 0.5;
-        transform: translateY(120px) scale(0.9);
-        z-index: 5;
-        filter: brightness(60%);
+      16.66% {
+        /* Drop out / Swap */
+        opacity: 0;
+        transform: translateY(60px) scale(0.9);
+        z-index: 6;
+        filter: brightness(50%);
+      }
+      17% {
+        /* Instantly move to back */
+        opacity: 0;
+        transform: translateY(-20px) scale(0.85);
+        z-index: 1;
+        filter: brightness(50%);
       }
       25% {
-        opacity: 0;
-        transform: translateY(20px) scale(0.85);
+        /* Start fading in at back */
+        opacity: 1;
+        transform: translateY(-20px) scale(0.9);
         z-index: 1;
-      }
-      95% {
-        opacity: 0;
-        transform: translateY(20px) scale(0.95);
-        z-index: 9; /* Prepare to emerge */
+        filter: brightness(40%);
       }
       100% {
+        /* Gradual rise to front stack */
         opacity: 1;
         transform: translateY(0) scale(1);
-        z-index: 10;
+        z-index: 5;
         filter: brightness(100%);
       }
     }
