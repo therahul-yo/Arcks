@@ -230,49 +230,99 @@
       background: rgba(255,255,255,0.05);
     }
 
-    /* Demo preview gallery */
+    /* Demo preview deck */
     .demo {
       margin-top: 80px;
       position: relative;
+      height: 380px; /* Increased height for stack */
       width: 100%;
-      max-width: 900px;
+      max-width: 600px;
+      display: flex;
+      justify-content: center;
       animation: floatIn 1s ease-out 0.8s backwards;
     }
 
-    .card-gallery {
-      display: flex;
-      gap: 20px;
-      overflow-x: auto;
-      padding: 20px 0;
-      scroll-snap-type: x mandatory;
-      -webkit-overflow-scrolling: touch;
-      scrollbar-width: none;
+    .card-deck {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      perspective: 1000px;
     }
 
-    .card-gallery::-webkit-scrollbar {
-      display: none;
-    }
-
-    .card-item {
-      flex: 0 0 auto;
-      width: 400px;
-      scroll-snap-align: center;
+    .card-img {
+      position: absolute;
+      width: 100%;
+      top: 0;
+      left: 0;
       border-radius: 16px;
-      overflow: hidden;
       box-shadow: 0 30px 60px rgba(0,0,0,0.5);
       border: 1px solid rgba(255,255,255,0.1);
-      transition: transform 0.3s ease, box-shadow 0.3s ease;
+      /* Default state: hidden/back */
+      opacity: 0;
+      transform: translateY(20px) scale(0.9);
+      z-index: 1;
     }
 
-    .card-item:hover {
-      transform: scale(1.02);
-      box-shadow: 0 40px 80px rgba(0,0,0,0.6);
+    /* 6 cards, 5s each = 30s loop */
+    .card-img {
+      animation: cardCycle 30s infinite cubic-bezier(0.4, 0.0, 0.2, 1);
     }
 
-    .card-item img {
-      width: 100%;
-      height: auto;
-      display: block;
+    /* Stagger delays so one is always visible */
+    :nth-child(1) { animation-delay: 0s; }
+    :nth-child(2) { animation-delay: -5s; }
+    :nth-child(3) { animation-delay: -10s; }
+    :nth-child(4) { animation-delay: -15s; }
+    :nth-child(5) { animation-delay: -20s; }
+    :nth-child(6) { animation-delay: -25s; }
+
+    /* Cycle Animation for N=6 */
+    /* 
+       0% - 13%: Active/Front
+       13% - 16%: Transition to back
+       16% - 100%: Wait in back
+       (100% -> 0% is the loop)
+    */
+    @keyframes cardCycle {
+      0% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+        z-index: 10;
+        filter: brightness(100%);
+      }
+      15% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+        z-index: 10;
+        filter: brightness(100%);
+      }
+      20% {
+        opacity: 0.5;
+        transform: translateY(120px) scale(0.9);
+        z-index: 5;
+        filter: brightness(60%);
+      }
+      25% {
+        opacity: 0;
+        transform: translateY(20px) scale(0.85);
+        z-index: 1;
+      }
+      95% {
+        opacity: 0;
+        transform: translateY(20px) scale(0.95);
+        z-index: 9; /* Prepare to emerge */
+      }
+      100% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+        z-index: 10;
+        filter: brightness(100%);
+      }
+    }
+
+    /* Pause animation on hover */
+    .demo:hover .card-img {
+      animation-play-state: paused;
     }
 
     @keyframes floatIn {
@@ -421,13 +471,13 @@
     </div>
 
     <div class="demo">
-      <div class="card-gallery">
-        <div class="card-item"><img src="preview.png" alt="Arcks Preview Full"></div>
-        <div class="card-item"><img src="preview2.png" alt="Arcks Preview Compact"></div>
-        <div class="card-item"><img src="card1.png" alt="Goodreads Preview"></div>
-        <div class="card-item"><img src="card2.png" alt="W3Schools Preview"></div>
-        <div class="card-item"><img src="card3.png" alt="Wired Preview"></div>
-        <div class="card-item"><img src="card4.png" alt="Wikipedia Preview"></div>
+      <div class="card-deck">
+        <img src="preview.png" alt="Arcks Preview Full" class="card-img">
+        <img src="preview2.png" alt="Arcks Preview Compact" class="card-img">
+        <img src="card1.png" alt="Goodreads Preview" class="card-img">
+        <img src="card2.png" alt="W3Schools Preview" class="card-img">
+        <img src="card3.png" alt="Wired Preview" class="card-img">
+        <img src="card4.png" alt="Wikipedia Preview" class="card-img">
       </div>
     </div>
   </main>
