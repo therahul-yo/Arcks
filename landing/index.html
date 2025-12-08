@@ -263,20 +263,13 @@
       z-index: 1;
     }
 
-    /* Professional Stack Animation */
+    /* Shuffle Layout */
     /* 
-       6 Cards. Loop length = 24s (4s per card).
-       Each card goes through 6 stages of 16.66% duration.
-       Stages:
-       1. Active (Front): Scale 1, Y=0, Opacity 1.
-       2. Exit: Slide Up (-60px), Opacity 0.
-       3. Reset: Teleport to bottom/back (Y=40px, Scale 0.9).
-       4. Waiting: Move up slightly in stack (Y=20px, Scale 0.95).
-       5. Approaching: Prepare to become active.
-       6. Transition to Active.
+       6 Cards. Loop length = 24s.
+       We want the card to visibly move to the back, not disappear.
     */
     .card-img {
-      animation: stackCycle 24s infinite cubic-bezier(0.25, 1, 0.5, 1);
+      animation: shuffleCycle 24s infinite ease-in-out;
       transform-origin: center bottom;
     }
 
@@ -288,64 +281,63 @@
     :nth-child(5) { animation-delay: -16s; }
     :nth-child(6) { animation-delay: -20s; }
 
-    @keyframes stackCycle {
-      /* STATE 1: Front (Active) */
+    @keyframes shuffleCycle {
+      /* 
+         0-12%: Active Front 
+      */
       0%, 12% {
-        opacity: 1;
         transform: translateY(0) scale(1);
-        z-index: 10;
+        z-index: 20;
+        opacity: 1;
         filter: brightness(100%);
         box-shadow: 0 30px 60px rgba(0,0,0,0.5);
       }
       
-      /* TRANSITION: Exit Upwards */
-      16.66% {
-        opacity: 0;
-        transform: translateY(-50px) scale(0.95);
-        z-index: 10;
+      /* 
+         16%: Pull Down & Shrink (To slide under) 
+      */
+      16% {
+        transform: translateY(120px) scale(0.9); 
+        z-index: 20; /* Still on top while moving down */
+        opacity: 1;
         filter: brightness(100%);
-        box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        box-shadow: 0 40px 70px rgba(0,0,0,0.6);
       }
       
-      /* STATE 2: Hidden Reset (Back of stack) */
-      16.67% {
-        opacity: 0;
-        transform: translateY(40px) scale(0.85); /* Start from below */
+      /* 
+         17%: Z-Index Swap (Instant)
+      */
+      17% {
+        transform: translateY(120px) scale(0.85); /* Slightly smaller to fit back */
+        z-index: 1; /* SNAP to back */
+        opacity: 1;
+        filter: brightness(40%); /* Darker because it's back */
+        box-shadow: none;
+      }
+      
+      /* 
+         22%: Slide Up to Back Position (Visible)
+      */
+      22% {
+        transform: translateY(40px) scale(0.85);
         z-index: 1;
-        filter: brightness(30%);
-      }
-      
-      /* STATE 3: Enqueue (Back visible) */
-      20% {
         opacity: 1;
-        transform: translateY(30px) scale(0.9);
-        z-index: 2;
-        filter: brightness(50%);
-        box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        filter: brightness(40%);
       }
       
-      /* STATE 4: Move Forward (Middle of stack) */
-      33% {
-        opacity: 1;
-        transform: translateY(30px) scale(0.9);
-        z-index: 2;
-        filter: brightness(50%);
-      }
+      /* 
+         Rest of cycle: Slowly moving forward in stack 
+      */
+      30% { transform: translateY(30px) scale(0.88); z-index: 2; filter: brightness(50%); }
+      50% { transform: translateY(20px) scale(0.91); z-index: 3; filter: brightness(60%); }
+      70% { transform: translateY(10px) scale(0.94); z-index: 4; filter: brightness(70%); }
+      90% { transform: translateY(5px) scale(0.97); z-index: 5; filter: brightness(80%); }
       
-      /* STATE 5: Move Forward (Queue head) */
-      83% {
-        opacity: 1;
-        transform: translateY(15px) scale(0.95); /* Closer to front */
-        z-index: 5;
-        filter: brightness(80%);
-        box-shadow: 0 15px 40px rgba(0,0,0,0.4);
-      }
-      
-      /* STATE 6: Transition to Front */
+      /* Ready to take front */
       100% {
-        opacity: 1;
         transform: translateY(0) scale(1);
-        z-index: 10;
+        z-index: 20;
+        opacity: 1;
         filter: brightness(100%);
         box-shadow: 0 30px 60px rgba(0,0,0,0.5);
       }
