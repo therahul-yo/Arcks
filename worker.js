@@ -1,172 +1,436 @@
 /**
  * Arcks - Cloudflare Worker Proxy
- * Secure proxy to Gemini API with origin verification
- * 
- * Deploy with: wrangler deploy
- * Set secret: wrangler secret put GEMINI_API_KEY
+ * Supports both Google Gemini and OpenRouter AI providers
+ * Features: origin verification, KV caching, rate limiting, SSRF protection
  */
 
-// Extension ID - update this after loading your extension
+// Extension IDs allowed to call this worker
 const ALLOWED_ORIGINS = [
-  'chrome-extension://YOUR_EXTENSION_ID_HERE'
+  "chrome-extension://fnjfkaalieomllbcjkbahknaamhecojg"
 ];
+
+// KV cache TTL
+const CACHE_TTL_SECONDS = 1800; // 30 minutes
+
+// In-memory rate limiter
+const RATE_LIMIT_WINDOW_MS = 60000;
+const RATE_LIMIT_MAX = 30;
+const rateLimitMap = new Map();
+
+// Available AI providers
+const PROVIDERS = {
+  gemini: "gemini",
+  openrouter: "openrouter"
+};
 
 export default {
   async fetch(request, env, ctx) {
-    // Handle CORS preflight
-    if (request.method === 'OPTIONS') {
+    const origin = request.headers.get("Origin");
+
+    if (request.method === "OPTIONS") {
       return handleCORS(request);
     }
-    
-    // Origin check
-    const origin = request.headers.get('Origin');
-    
+
     if (!origin || !ALLOWED_ORIGINS.includes(origin)) {
-      return new Response('Forbidden: Invalid origin', { 
+      return new Response("Forbidden: Invalid origin", {
         status: 403,
-        headers: { 'Content-Type': 'text/plain' }
+        headers: { "Content-Type": "text/plain" }
       });
     }
-    
-    if (request.method !== 'POST') {
-      return new Response('Method not allowed', { 
+
+    if (request.method !== "POST") {
+      return new Response("Method not allowed", {
         status: 405,
         headers: corsHeaders(origin)
       });
     }
-    
+
+    // Rate limiting
+    const clientIp = request.headers.get("CF-Connecting-IP") || "unknown";
+    if (!checkRateLimit(clientIp)) {
+      return new Response(JSON.stringify({ error: "Rate limit exceeded. Try again later." }), {
+        status: 429,
+        headers: {
+          ...corsHeaders(origin),
+          "Content-Type": "application/json"
+        }
+      });
+    }
+
     try {
       const body = await request.text();
-      
-      if (body.length > 10000) {
-        return new Response('Payload too large', { 
+
+      if (body.length > 2048) {
+        return new Response("Request body too large", {
           status: 413,
           headers: corsHeaders(origin)
         });
       }
-      
+
       const data = JSON.parse(body);
-      const { url, content } = data;
-      
+      const { url, provider: requestedProvider } = data;
+
       if (!url) {
-        return new Response('Missing URL', { 
+        return new Response("Missing URL", {
           status: 400,
           headers: corsHeaders(origin)
         });
       }
-      
-      const summary = await getSummary(env.GEMINI_API_KEY, url, content);
-      
+
+      const validatedUrl = validateAndSanitizeUrl(url);
+      if (!validatedUrl) {
+        return new Response("Invalid or forbidden URL", {
+          status: 400,
+          headers: corsHeaders(origin)
+        });
+      }
+
+      // Choose provider: request override > env default > fallback to gemini
+      let provider = PROVIDERS.gemini;
+      if (requestedProvider && PROVIDERS[requestedProvider]) {
+        provider = requestedProvider;
+      } else if (env.DEFAULT_PROVIDER && PROVIDERS[env.DEFAULT_PROVIDER]) {
+        provider = env.DEFAULT_PROVIDER;
+      }
+
+      const summary = await getSummary(env, validatedUrl, provider);
+
       return new Response(JSON.stringify(summary), {
         status: 200,
         headers: {
           ...corsHeaders(origin),
-          'Content-Type': 'application/json'
+          "Content-Type": "application/json"
         }
       });
-      
     } catch (error) {
-      console.error('Worker error:', error);
       return new Response(JSON.stringify({ error: error.message }), {
         status: 500,
         headers: {
           ...corsHeaders(origin),
-          'Content-Type': 'application/json'
+          "Content-Type": "application/json"
         }
       });
     }
   }
 };
 
-/**
- * Get summary from Gemini
- */
-async function getSummary(apiKey, url, content) {
-  const prompt = `Summarize this webpage in 2-3 sentences. Be concise and informative.
+// ---- Rate Limiting ----
 
-URL: ${url}
+function checkRateLimit(ip) {
+  const now = Date.now();
+  const entry = rateLimitMap.get(ip);
 
-Page Content:
-${content || '(No content - summarize based on URL)'}
+  if (!entry || now > entry.resetAt) {
+    rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+    return true;
+  }
 
-Respond in JSON format:
-{"title": "Page Title", "summary": "2-3 sentence summary of the page content."}`;
+  if (entry.count >= RATE_LIMIT_MAX) {
+    return false;
+  }
 
+  entry.count++;
+  return true;
+}
+
+// ---- Main Summary Function ----
+
+async function getSummary(env, url, provider) {
+  const kv = env.ARCKS_KV;
+  const cacheKey = `summary:${provider}:${url}`;
+
+  // Check KV cache
+  if (kv) {
+    try {
+      const cached = await kv.get(cacheKey, { type: "json" });
+      if (cached && cached.title && cached.summary) {
+        return cached;
+      }
+    } catch {
+      // Cache read failure is non-fatal
+    }
+  }
+
+  // Fetch page content (server-side)
+  const pageContent = await fetchPageContent(url);
+
+  // Generate summary using configured provider
+  let result;
+  if (provider === PROVIDERS.openrouter) {
+    result = await getSummaryFromOpenRouter(env, url, pageContent);
+  } else {
+    result = await getSummaryFromGemini(env, url, pageContent);
+  }
+
+  // Cache the result
+  if (kv) {
+    try {
+      await kv.put(cacheKey, JSON.stringify(result), { expirationTtl: CACHE_TTL_SECONDS });
+    } catch {
+      // Cache write failure is non-fatal
+    }
+  }
+
+  return result;
+}
+
+// ---- Gemini Provider ----
+
+async function getSummaryFromGemini(env, url, pageContent) {
+  const apiKey = env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error("GEMINI_API_KEY not configured");
+  }
+
+  const prompt = buildSummarizationPrompt(url, pageContent);
 
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
     {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: {
           temperature: 0.3,
-          maxOutputTokens: 300
+          maxOutputTokens: 800,
+          responseMimeType: "application/json"
         }
       })
     }
   );
-  
+
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`API error: ${response.status}`);
+    throw new Error(`Gemini API error: ${response.status} - ${errorText}`);
   }
-  
-  const result = await response.json();
-  
-  // Gemini 2.5 Flash may return multiple parts (thoughts + response)
-  const parts = result.candidates?.[0]?.content?.parts || [];
-  let text = '';
-  
-  // Get the last text part (usually the actual response, not thoughts)
+
+  const responseData = await response.json();
+  const parts = responseData.candidates?.[0]?.content?.parts || [];
+
+  let text = "";
   for (const part of parts) {
     if (part.text) {
       text = part.text;
+      break;
     }
   }
-  
+
+  return parseSummaryResponse(text, url);
+}
+
+// ---- OpenRouter Provider ----
+
+async function getSummaryFromOpenRouter(env, url, pageContent) {
+  const apiKey = env.OPENROUTER_API_KEY;
+  if (!apiKey) {
+    throw new Error("OPENROUTER_API_KEY not configured");
+  }
+
+  const prompt = buildSummarizationPrompt(url, pageContent);
+
+  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${apiKey}`,
+      "HTTP-Referer": "https://arcks.workers.dev",
+      "X-Title": "Arcks"
+    },
+    body: JSON.stringify({
+      model: "google/gemini-2.5-flash-preview-05-20",
+      messages: [
+        {
+          role: "system",
+          content: "You are a helpful assistant that summarizes web pages. Always respond with a JSON object in this exact format: {\"title\": \"Page Title\", \"summary\": \"2-3 sentence summary of the page content.\"}"
+        },
+        {
+          role: "user",
+          content: prompt
+        }
+      ],
+      temperature: 0.3,
+      max_tokens: 800
+    })
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`OpenRouter API error: ${response.status} - ${errorText}`);
+  }
+
+  const responseData = await response.json();
+  const text = responseData.choices?.[0]?.message?.content || "";
+
+  return parseSummaryResponse(text, url);
+}
+
+// ---- Shared Helpers ----
+
+function buildSummarizationPrompt(url, pageContent) {
+  return `Summarize this webpage in 2-3 sentences. Be concise and informative.
+
+URL: ${url}
+
+Page Content:
+${pageContent || "(No content available)"}
+
+Respond with a JSON object in this exact format:
+{"title": "Page Title", "summary": "2-3 sentence summary of the page content."}`;
+}
+
+function parseSummaryResponse(text, url) {
   if (!text) {
     return {
       title: new URL(url).hostname,
-      summary: 'Unable to generate summary.'
+      summary: "Unable to generate summary."
     };
   }
-  
-  // Parse JSON from response
+
+  // Try to parse JSON response
+  let parsed;
   try {
+    parsed = JSON.parse(text);
+  } catch {
+    // Try extracting from markdown code blocks
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
-      const parsed = JSON.parse(jsonMatch[0]);
-      if (parsed.title && parsed.summary) {
-        return parsed;
+      try {
+        parsed = JSON.parse(jsonMatch[0]);
+      } catch {
+        // Parse failed
       }
     }
-  } catch {}
-  
-  // Fallback - use the text directly as summary
-  return {
-    title: new URL(url).hostname,
-    summary: text.replace(/```json|```/g, '').trim().substring(0, 250) || 'Unable to generate summary.'
-  };
+  }
+
+  const title = parsed?.title || new URL(url).hostname;
+  const summary = parsed?.summary || text.replace(/\{[\s\S]*\}|```json|```/g, "").trim().substring(0, 250) || "Unable to generate summary.";
+
+  return { title, summary };
 }
+
+// ---- Page Content Fetching ----
+
+async function fetchPageContent(url) {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        "User-Agent": "Mozilla/5.0 (compatible; ArcksBot/1.0)"
+      },
+      signal: controller.signal
+    });
+
+    clearTimeout(timeout);
+
+    if (!response.ok) {
+      return "";
+    }
+
+    const contentType = response.headers.get("content-type") || "";
+    if (!contentType.includes("text/html")) {
+      return "";
+    }
+
+    const html = await response.text();
+    return sanitizeHtmlToText(html);
+  } catch {
+    return "";
+  }
+}
+
+function sanitizeHtmlToText(html) {
+  try {
+    let text = html
+      .replace(/<script[\s\S]*?<\/script>/gi, "")
+      .replace(/<style[\s\S]*?<\/style>/gi, "")
+      .replace(/<[^>]+>/g, " ");
+
+    // Decode common entities
+    text = text
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'");
+
+    // Clean whitespace
+    text = text.replace(/\s+/g, " ").trim();
+
+    if (text.length > 12000) {
+      text = text.substring(0, 12000);
+    }
+
+    return text;
+  } catch {
+    return "";
+  }
+}
+
+// ---- URL Validation (SSRF Protection) ----
+
+function validateAndSanitizeUrl(urlStr) {
+  try {
+    const url = new URL(urlStr);
+
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      return null;
+    }
+
+    const hostname = url.hostname.toLowerCase();
+    if (hostname === "localhost" || hostname.endsWith(".localhost")) {
+      return null;
+    }
+
+    // Block IP addresses in private ranges
+    const ipRegex = /^(\d{1,3}\.){3}\d{1,3}$/;
+    if (ipRegex.test(hostname)) {
+      const parts = hostname.split(".").map(Number);
+      if (parts[0] === 10 ||
+          (parts[0] === 172 && parts[1] >= 16 && parts[1] < 32) ||
+          (parts[0] === 192 && parts[1] === 168) ||
+          (parts[0] === 127) ||
+          (parts[0] === 169 && parts[1] === 254) ||
+          (parts[0] === 0) ||
+          (parts[0] >= 224)) {
+        return null;
+      }
+    }
+
+    if (hostname === "127.0.0.1" || hostname === "::1" || hostname === "0.0.0.0" ||
+        hostname.startsWith("172.17.") || hostname.startsWith("172.18.")) {
+      return null;
+    }
+
+    if (urlStr.length > 2048) return null;
+
+    return urlStr;
+  } catch {
+    return null;
+  }
+}
+
+// ---- CORS ----
 
 function corsHeaders(origin) {
   return {
-    'Access-Control-Allow-Origin': origin,
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
-    'Access-Control-Max-Age': '86400'
+    "Access-Control-Allow-Origin": origin,
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Max-Age": "86400"
   };
 }
 
 function handleCORS(request) {
-  const origin = request.headers.get('Origin');
-  
+  const origin = request.headers.get("Origin");
+
   if (!origin || !ALLOWED_ORIGINS.includes(origin)) {
-    return new Response('Forbidden', { status: 403 });
+    return new Response("Forbidden", { status: 403 });
   }
-  
+
   return new Response(null, {
     status: 204,
     headers: corsHeaders(origin)
