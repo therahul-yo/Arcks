@@ -4,7 +4,7 @@
  */
 
 const DEFAULT_SETTINGS = {
-  hoverDelay: 800,
+  hoverDelay: 500,
   workerUrl: '',
   provider: 'gemini',
   enabled: true
