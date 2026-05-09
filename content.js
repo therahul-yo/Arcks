@@ -14,7 +14,6 @@
   let shadowRoot = null;
   let settings = { hoverDelay: 350, enabled: true, workerUrl: '' };
   let isPopupHovered = false;
-  let abortController = null;
   let currentRequestId = 0;
 
   // Client-side cache: URL -> { title, summary, bullets, timestamp }
@@ -433,10 +432,6 @@
       return;
     }
 
-    // Cancel previous request
-    if (abortController) abortController.abort();
-    abortController = new AbortController();
-
     try {
       const data = await callBackground(url);
       if (currentRequestId !== requestId) return; // stale
@@ -455,8 +450,6 @@
       if (currentRequestId !== requestId) return;
       showError(popupEl, error.message || 'Failed to load preview');
     }
-
-    abortController = null;
   }
 
   // ===== EVENT HANDLERS =====
