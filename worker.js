@@ -11,6 +11,15 @@ const ALLOWED_ORIGINS = [
 
 // KV cache TTL
 const CACHE_TTL_SECONDS = 1800; // 30 minutes
+const CACHE_VERSION = "v2";
+
+// Allowed icon names for bullet points (Lucide icon set)
+const ALLOWED_ICONS = [
+  "message-circle", "users", "calendar", "tag", "file-text",
+  "bookmark", "code", "dollar-sign", "globe", "info",
+  "check-circle", "alert-circle", "book", "star", "lightbulb",
+  "trending-up", "shield", "zap", "map-pin", "clock"
+];
 
 // In-memory rate limiter
 const RATE_LIMIT_WINDOW_MS = 60000;
@@ -121,6 +130,9 @@ function checkRateLimit(ip) {
   const entry = rateLimitMap.get(ip);
 
   if (!entry || now > entry.resetAt) {
+    for (const [key, val] of rateLimitMap) {
+      if (now > val.resetAt) rateLimitMap.delete(key);
+    }
     rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
     return true;
   }
@@ -137,13 +149,13 @@ function checkRateLimit(ip) {
 
 async function getSummary(env, url, provider) {
   const kv = env.ARCKS_KV;
-  const cacheKey = `summary:${provider}:${url}`;
+  const cacheKey = `summary:${CACHE_VERSION}:${provider}:${url}`;
 
   // Check KV cache
   if (kv) {
     try {
       const cached = await kv.get(cacheKey, { type: "json" });
-      if (cached && cached.title && cached.summary) {
+      if (cached && cached.headline && Array.isArray(cached.bullets)) {
         return cached;
       }
     } catch {
@@ -193,7 +205,7 @@ async function getSummaryFromGemini(env, url, pageContent) {
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: {
           temperature: 0.3,
-          maxOutputTokens: 800,
+          maxOutputTokens: 1024,
           responseMimeType: "application/json"
         }
       })
@@ -202,7 +214,8 @@ async function getSummaryFromGemini(env, url, pageContent) {
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`Gemini API error: ${response.status} - ${errorText}`);
+    console.error(`Gemini API error: ${response.status} - ${errorText}`);
+    throw new Error(`AI provider error (${response.status})`);
   }
 
   const responseData = await response.json();
@@ -242,7 +255,7 @@ async function getSummaryFromOpenRouter(env, url, pageContent) {
       messages: [
         {
           role: "system",
-          content: "You are a helpful assistant that summarizes web pages. Always respond with a JSON object in this exact format: {\"title\": \"Page Title\", \"summary\": \"2-3 sentence summary of the page content.\"}"
+          content: `You generate Arc-browser-style preview cards for web pages. Always respond with a JSON object: {"headline": "one-line tagline", "bullets": [{"icon": "icon-name", "label": "Short Label", "value": "Concise value."}]}. Use 3-5 bullets. The "icon" field MUST be one of: ${ALLOWED_ICONS.join(", ")}.`
         },
         {
           role: "user",
@@ -250,13 +263,15 @@ async function getSummaryFromOpenRouter(env, url, pageContent) {
         }
       ],
       temperature: 0.3,
-      max_tokens: 800
+      max_tokens: 1024,
+      response_format: { type: "json_object" }
     })
   });
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`OpenRouter API error: ${response.status} - ${errorText}`);
+    console.error(`OpenRouter API error: ${response.status} - ${errorText}`);
+    throw new Error(`AI provider error (${response.status})`);
   }
 
   const responseData = await response.json();
@@ -268,31 +283,36 @@ async function getSummaryFromOpenRouter(env, url, pageContent) {
 // ---- Shared Helpers ----
 
 function buildSummarizationPrompt(url, pageContent) {
-  return `Summarize this webpage in 2-3 sentences. Be concise and informative.
+  return `You are generating an Arc-browser-style preview card for the page below. The card has:
+- A short one-line "headline" (a tagline summarizing the page topic, ~6-10 words, ends with a period).
+- 3-5 "bullets". Each bullet has:
+  - "icon": one of [${ALLOWED_ICONS.join(", ")}], chosen to fit the bullet's topic.
+  - "label": a 1-3 word bold label naming the bullet topic.
+  - "value": a single concise sentence (max ~12 words) giving the key fact.
+
+Pick the most informative, distinct bullets — each should cover a different aspect of the page (don't repeat). Avoid generic filler. Match icons sensibly (calendar for dates, users for people, dollar-sign for money, code for technical, tag for offers/discounts, message-circle for discussions, etc.).
 
 URL: ${url}
 
 Page Content:
 ${pageContent || "(No content available)"}
 
-Respond with a JSON object in this exact format:
-{"title": "Page Title", "summary": "2-3 sentence summary of the page content."}`;
+Respond ONLY with a JSON object in this exact format:
+{"headline": "One-line tagline.", "bullets": [{"icon": "calendar", "label": "Date", "value": "Confirmed for June 8th, 2026."}]}`;
 }
 
 function parseSummaryResponse(text, url) {
-  if (!text) {
-    return {
-      title: new URL(url).hostname,
-      summary: "Unable to generate summary."
-    };
-  }
+  const fallback = () => ({
+    headline: new URL(url).hostname,
+    bullets: [{ icon: "info", label: "Preview", value: "Unable to generate preview." }]
+  });
 
-  // Try to parse JSON response
+  if (!text) return fallback();
+
   let parsed;
   try {
     parsed = JSON.parse(text);
   } catch {
-    // Try extracting from markdown code blocks
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       try {
@@ -303,10 +323,36 @@ function parseSummaryResponse(text, url) {
     }
   }
 
-  const title = parsed?.title || new URL(url).hostname;
-  const summary = parsed?.summary || text.replace(/\{[\s\S]*\}|```json|```/g, "").trim().substring(0, 250) || "Unable to generate summary.";
+  if (!parsed) return fallback();
 
-  return { title, summary };
+  // Back-compat: model may have returned old {title, summary} shape
+  if (!parsed.bullets && parsed.summary) {
+    return {
+      headline: parsed.title || new URL(url).hostname,
+      bullets: [{ icon: "info", label: "Summary", value: String(parsed.summary).substring(0, 200) }]
+    };
+  }
+
+  const headline = typeof parsed.headline === "string" && parsed.headline.trim()
+    ? parsed.headline.trim().substring(0, 140)
+    : new URL(url).hostname;
+
+  const rawBullets = Array.isArray(parsed.bullets) ? parsed.bullets : [];
+  const bullets = rawBullets
+    .filter(b => b && typeof b === "object" && (b.label || b.value))
+    .slice(0, 5)
+    .map(b => ({
+      icon: ALLOWED_ICONS.includes(b.icon) ? b.icon : "info",
+      label: String(b.label || "").trim().substring(0, 40),
+      value: String(b.value || "").trim().substring(0, 200)
+    }))
+    .filter(b => b.label || b.value);
+
+  if (bullets.length === 0) {
+    return { headline, bullets: [{ icon: "info", label: "Preview", value: "No additional details available." }] };
+  }
+
+  return { headline, bullets };
 }
 
 // ---- Page Content Fetching ----
