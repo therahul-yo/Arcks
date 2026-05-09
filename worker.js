@@ -130,6 +130,9 @@ function checkRateLimit(ip) {
   const entry = rateLimitMap.get(ip);
 
   if (!entry || now > entry.resetAt) {
+    for (const [key, val] of rateLimitMap) {
+      if (now > val.resetAt) rateLimitMap.delete(key);
+    }
     rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
     return true;
   }
@@ -211,7 +214,8 @@ async function getSummaryFromGemini(env, url, pageContent) {
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`Gemini API error: ${response.status} - ${errorText}`);
+    console.error(`Gemini API error: ${response.status} - ${errorText}`);
+    throw new Error(`AI provider error (${response.status})`);
   }
 
   const responseData = await response.json();
@@ -266,7 +270,8 @@ async function getSummaryFromOpenRouter(env, url, pageContent) {
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`OpenRouter API error: ${response.status} - ${errorText}`);
+    console.error(`OpenRouter API error: ${response.status} - ${errorText}`);
+    throw new Error(`AI provider error (${response.status})`);
   }
 
   const responseData = await response.json();

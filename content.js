@@ -14,7 +14,6 @@
   let shadowRoot = null;
   let settings = { hoverDelay: 500, enabled: true, workerUrl: '' };
   let isPopupHovered = false;
-  let abortController = null;
   let currentRequestId = 0;
 
   const CACHE_DURATION = 10 * 60 * 1000;
@@ -432,13 +431,11 @@
   function showPreview(popupEl, data, url) {
     if (!popupEl || !shadowRoot?.contains(popupEl)) return;
     buildPreview(popupEl, data, url);
-    attachHoverHandlers(popupEl);
   }
 
   function showError(popupEl, message) {
     if (!popupEl || !shadowRoot?.contains(popupEl)) return;
     buildError(popupEl, message);
-    attachHoverHandlers(popupEl);
   }
 
   // ===== HIDE =====
@@ -516,9 +513,6 @@
       return;
     }
 
-    if (abortController) abortController.abort();
-    abortController = new AbortController();
-
     try {
       const data = await callBackground(url);
       if (currentRequestId !== requestId) return;
@@ -532,8 +526,6 @@
       if (currentRequestId !== requestId) return;
       showError(popupEl, error.message || 'Failed to load preview');
     }
-
-    abortController = null;
   }
 
   // ===== EVENT HANDLERS =====
