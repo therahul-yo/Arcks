@@ -146,7 +146,7 @@ async function getSummary(env, url, provider) {
   if (kv) {
     try {
       const cached = await kv.get(cacheKey, { type: "json" });
-      if (cached && cached.title && cached.summary) {
+      if (cached && cached.title && cached.summary && cached.headline && Array.isArray(cached.bullets)) {
         return cached;
       }
     } catch {
@@ -293,9 +293,12 @@ Respond with a JSON object in this exact format:
 
 function parseSummaryResponse(text, url) {
   if (!text) {
+    const hostname = new URL(url).hostname;
     return {
-      title: new URL(url).hostname,
-      summary: "Unable to generate summary."
+      title: hostname,
+      headline: hostname,
+      summary: "Unable to generate summary.",
+      bullets: ["Unable to generate summary."]
     };
   }
 

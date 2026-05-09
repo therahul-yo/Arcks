@@ -526,8 +526,12 @@
   }
 
   function formatInsight(text) {
-    const cleanText = escapeHtml(String(text || ''));
-    return cleanText.replace(/^([^:]{3,42}:)/, '<strong>$1</strong>');
+    const raw = String(text || '');
+    const match = raw.match(/^([^:]{3,42}:)/);
+    if (match) {
+      return '<strong>' + escapeHtml(match[1]) + '</strong>' + escapeHtml(raw.slice(match[1].length));
+    }
+    return escapeHtml(raw);
   }
 
   function stripHtml(text) {
