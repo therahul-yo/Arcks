@@ -11,6 +11,15 @@ const ALLOWED_ORIGINS = [
 
 // KV cache TTL
 const CACHE_TTL_SECONDS = 1800; // 30 minutes
+const CACHE_VERSION = "v2";
+
+// Allowed icon names for bullet points (Lucide icon set)
+const ALLOWED_ICONS = [
+  "message-circle", "users", "calendar", "tag", "file-text",
+  "bookmark", "code", "dollar-sign", "globe", "info",
+  "check-circle", "alert-circle", "book", "star", "lightbulb",
+  "trending-up", "shield", "zap", "map-pin", "clock"
+];
 
 // In-memory rate limiter
 const RATE_LIMIT_WINDOW_MS = 60000;
@@ -140,7 +149,7 @@ function checkRateLimit(ip) {
 
 async function getSummary(env, url, provider) {
   const kv = env.ARCKS_KV;
-  const cacheKey = `summary:${provider}:${url}`;
+  const cacheKey = `summary:${CACHE_VERSION}:${provider}:${url}`;
 
   // Check KV cache
   if (kv) {
@@ -196,7 +205,7 @@ async function getSummaryFromGemini(env, url, pageContent) {
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: {
           temperature: 0.3,
-          maxOutputTokens: 800,
+          maxOutputTokens: 1024,
           responseMimeType: "application/json"
         }
       })
@@ -254,7 +263,8 @@ async function getSummaryFromOpenRouter(env, url, pageContent) {
         }
       ],
       temperature: 0.3,
-      max_tokens: 800
+      max_tokens: 1024,
+      response_format: { type: "json_object" }
     })
   });
 
@@ -302,12 +312,10 @@ function parseSummaryResponse(text, url) {
     };
   }
 
-  // Try to parse JSON response
   let parsed;
   try {
     parsed = JSON.parse(text);
   } catch {
-    // Try extracting from markdown code blocks
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       try {
