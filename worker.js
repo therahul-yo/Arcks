@@ -242,7 +242,7 @@ async function getSummaryFromOpenRouter(env, url, pageContent) {
       messages: [
         {
           role: "system",
-          content: "You are a helpful assistant that summarizes web pages. Always respond with a JSON object in this exact format: {\"title\": \"Page Title\", \"summary\": \"2-3 sentence summary of the page content.\"}"
+          content: "You create compact browser hover previews. Always respond with JSON in this exact shape: {\"title\":\"Page Title\",\"headline\":\"Short page preview headline.\",\"summary\":\"One sentence fallback summary.\",\"bullets\":[\"Label: useful insight\",\"Label: useful insight\",\"Label: useful insight\"]}"
         },
         {
           role: "user",
@@ -268,7 +268,14 @@ async function getSummaryFromOpenRouter(env, url, pageContent) {
 // ---- Shared Helpers ----
 
 function buildSummarizationPrompt(url, pageContent) {
-  return `Summarize this webpage in 2-3 sentences. Be concise and informative.
+  return `Create a compact browser hover preview for this webpage.
+
+Write like a high-signal Arc-style preview:
+- one short headline that explains what the page is about
+- 3 to 4 bullet insights
+- each bullet must be under 90 characters
+- make the first 1 to 4 words of each bullet a label followed by a colon
+- do not invent facts that are not present in the page content
 
 URL: ${url}
 
@@ -276,7 +283,7 @@ Page Content:
 ${pageContent || "(No content available)"}
 
 Respond with a JSON object in this exact format:
-{"title": "Page Title", "summary": "2-3 sentence summary of the page content."}`;
+{"title": "Page Title", "headline": "Short page preview headline.", "summary": "One sentence fallback summary.", "bullets": ["Label: useful insight", "Label: useful insight", "Label: useful insight"]}`;
 }
 
 function parseSummaryResponse(text, url) {
@@ -304,9 +311,13 @@ function parseSummaryResponse(text, url) {
   }
 
   const title = parsed?.title || new URL(url).hostname;
+  const headline = parsed?.headline || parsed?.summary || title;
   const summary = parsed?.summary || text.replace(/\{[\s\S]*\}|```json|```/g, "").trim().substring(0, 250) || "Unable to generate summary.";
+  const bullets = Array.isArray(parsed?.bullets)
+    ? parsed.bullets.map(String).filter(Boolean).slice(0, 4)
+    : summary.split(/(?<=[.!?])\s+/).filter(Boolean).slice(0, 4);
 
-  return { title, summary };
+  return { title, headline, summary, bullets };
 }
 
 // ---- Page Content Fetching ----
