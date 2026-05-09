@@ -3,7 +3,7 @@
  */
 
 const DEFAULT_SETTINGS = {
-  hoverDelay: 500,
+  hoverDelay: 350,
   workerUrl: '',
   provider: 'gemini',
   enabled: true
@@ -30,8 +30,8 @@ saveButton.addEventListener('click', async () => {
   const workerUrl = workerUrlInput ? workerUrlInput.value.trim() : '';
   const provider = providerInput ? providerInput.value : 'gemini';
 
-  if (isNaN(hoverDelay) || hoverDelay < 200 || hoverDelay > 3000) {
-    showStatus('Hover delay must be between 200-3000ms', 'error');
+  if (isNaN(hoverDelay) || hoverDelay < 100 || hoverDelay > 3000) {
+    showStatus('Hover delay must be between 100-3000ms', 'error');
     return;
   }
 

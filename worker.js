@@ -155,7 +155,7 @@ async function getSummary(env, url, provider) {
   if (kv) {
     try {
       const cached = await kv.get(cacheKey, { type: "json" });
-      if (cached && cached.headline && Array.isArray(cached.bullets)) {
+      if (cached && cached.title && cached.summary && cached.headline && Array.isArray(cached.bullets)) {
         return cached;
       }
     } catch {
@@ -255,7 +255,7 @@ async function getSummaryFromOpenRouter(env, url, pageContent) {
       messages: [
         {
           role: "system",
-          content: `You generate Arc-browser-style preview cards for web pages. Always respond with a JSON object: {"headline": "one-line tagline", "bullets": [{"icon": "icon-name", "label": "Short Label", "value": "Concise value."}]}. Use 3-5 bullets. The "icon" field MUST be one of: ${ALLOWED_ICONS.join(", ")}.`
+          content: "You create compact browser hover previews. Always respond with JSON in this exact shape: {\"title\":\"Page Title\",\"headline\":\"Short page preview headline.\",\"summary\":\"One sentence fallback summary.\",\"bullets\":[\"Label: useful insight\",\"Label: useful insight\",\"Label: useful insight\"]}"
         },
         {
           role: "user",
@@ -283,31 +283,34 @@ async function getSummaryFromOpenRouter(env, url, pageContent) {
 // ---- Shared Helpers ----
 
 function buildSummarizationPrompt(url, pageContent) {
-  return `You are generating an Arc-browser-style preview card for the page below. The card has:
-- A short one-line "headline" (a tagline summarizing the page topic, ~6-10 words, ends with a period).
-- 3-5 "bullets". Each bullet has:
-  - "icon": one of [${ALLOWED_ICONS.join(", ")}], chosen to fit the bullet's topic.
-  - "label": a 1-3 word bold label naming the bullet topic.
-  - "value": a single concise sentence (max ~12 words) giving the key fact.
+  return `Create a compact browser hover preview for this webpage.
 
-Pick the most informative, distinct bullets — each should cover a different aspect of the page (don't repeat). Avoid generic filler. Match icons sensibly (calendar for dates, users for people, dollar-sign for money, code for technical, tag for offers/discounts, message-circle for discussions, etc.).
+Write like a high-signal Arc-style preview:
+- one short headline that explains what the page is about
+- 3 to 4 bullet insights
+- each bullet must be under 90 characters
+- make the first 1 to 4 words of each bullet a label followed by a colon
+- do not invent facts that are not present in the page content
 
 URL: ${url}
 
 Page Content:
 ${pageContent || "(No content available)"}
 
-Respond ONLY with a JSON object in this exact format:
-{"headline": "One-line tagline.", "bullets": [{"icon": "calendar", "label": "Date", "value": "Confirmed for June 8th, 2026."}]}`;
+Respond with a JSON object in this exact format:
+{"title": "Page Title", "headline": "Short page preview headline.", "summary": "One sentence fallback summary.", "bullets": ["Label: useful insight", "Label: useful insight", "Label: useful insight"]}`;
 }
 
 function parseSummaryResponse(text, url) {
-  const fallback = () => ({
-    headline: new URL(url).hostname,
-    bullets: [{ icon: "info", label: "Preview", value: "Unable to generate preview." }]
-  });
-
-  if (!text) return fallback();
+  if (!text) {
+    const hostname = new URL(url).hostname;
+    return {
+      title: hostname,
+      headline: hostname,
+      summary: "Unable to generate summary.",
+      bullets: ["Unable to generate summary."]
+    };
+  }
 
   let parsed;
   try {
@@ -323,36 +326,14 @@ function parseSummaryResponse(text, url) {
     }
   }
 
-  if (!parsed) return fallback();
+  const title = parsed?.title || new URL(url).hostname;
+  const headline = parsed?.headline || parsed?.summary || title;
+  const summary = parsed?.summary || text.replace(/\{[\s\S]*\}|```json|```/g, "").trim().substring(0, 250) || "Unable to generate summary.";
+  const bullets = Array.isArray(parsed?.bullets)
+    ? parsed.bullets.map(String).filter(Boolean).slice(0, 4)
+    : summary.split(/(?<=[.!?])\s+/).filter(Boolean).slice(0, 4);
 
-  // Back-compat: model may have returned old {title, summary} shape
-  if (!parsed.bullets && parsed.summary) {
-    return {
-      headline: parsed.title || new URL(url).hostname,
-      bullets: [{ icon: "info", label: "Summary", value: String(parsed.summary).substring(0, 200) }]
-    };
-  }
-
-  const headline = typeof parsed.headline === "string" && parsed.headline.trim()
-    ? parsed.headline.trim().substring(0, 140)
-    : new URL(url).hostname;
-
-  const rawBullets = Array.isArray(parsed.bullets) ? parsed.bullets : [];
-  const bullets = rawBullets
-    .filter(b => b && typeof b === "object" && (b.label || b.value))
-    .slice(0, 5)
-    .map(b => ({
-      icon: ALLOWED_ICONS.includes(b.icon) ? b.icon : "info",
-      label: String(b.label || "").trim().substring(0, 40),
-      value: String(b.value || "").trim().substring(0, 200)
-    }))
-    .filter(b => b.label || b.value);
-
-  if (bullets.length === 0) {
-    return { headline, bullets: [{ icon: "info", label: "Preview", value: "No additional details available." }] };
-  }
-
-  return { headline, bullets };
+  return { title, headline, summary, bullets };
 }
 
 // ---- Page Content Fetching ----
