@@ -326,9 +326,6 @@
       </div>
     `;
 
-    popupEl.addEventListener('mouseenter', () => { isPopupHovered = true; clearHideTimeout(); });
-    popupEl.addEventListener('mouseleave', () => { isPopupHovered = false; scheduleHide(); });
-
     const shareButton = popupEl.querySelector('.arcks-share');
     shareButton?.addEventListener('click', async () => {
       const shareText = `${stripHtml(title)}\n${stripHtml(headline)}\n${url}`;
