@@ -2,7 +2,7 @@
 
 **Peek before you click.** Arcks is a browser extension that instantly generates AI-powered preview cards for Google Search results when you hover over them.
 
-![Arcks Preview](landing/preview2.png)
+![Arcks Preview](landing/sample-openclaw.png)
 
 ## ✨ Features
 
