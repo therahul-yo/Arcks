@@ -3,811 +3,1054 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="theme-color" content="#06070b">
-  <title>Arcks — Preview before you click</title>
-  <meta name="description" content="AI-powered hover previews for Google Search. See what's inside any link before you click — powered by Gemini & OpenRouter.">
+  <meta name="theme-color" content="#f4f1ea">
+  <title>Arcks — A reading layer for search.</title>
+  <meta name="description" content="Arcks is a hover layer for Google Search. It reads the page on the other side of every link, so you don't have to open it to know.">
   <link rel="icon" type="image/png" href="icons/icon128.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+
   <style>
+    /* ─────────────────────────────────────────────────────
+       ARCKS — Swiss editorial rebuild
+       Strict 12-column grid · monochrome with one accent
+       Inter (display + body) · JetBrains Mono (labels)
+       Instrument Serif (rare italic emphasis)
+       ───────────────────────────────────────────────────── */
+
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
     :root {
-      --bg: #06070b;
-      --bg-2: #0b0d14;
-      --surface: #11141c;
-      --surface-2: #161a24;
-      --border: rgba(255, 255, 255, 0.07);
-      --border-strong: rgba(255, 255, 255, 0.12);
-      --text: #e8eaf1;
-      --text-dim: #a4a8b5;
-      --text-muted: #6b7080;
-      --accent: #8b5cf6;
-      --accent-2: #06b6d4;
-      --accent-glow: rgba(139, 92, 246, 0.5);
-      --gradient: linear-gradient(135deg, #8b5cf6 0%, #06b6d4 100%);
-      --gradient-soft: linear-gradient(135deg, rgba(139,92,246,0.15) 0%, rgba(6,182,212,0.15) 100%);
-      --shadow-sm: 0 2px 8px rgba(0,0,0,0.3);
-      --shadow-md: 0 8px 24px rgba(0,0,0,0.45);
-      --shadow-lg: 0 24px 64px rgba(0,0,0,0.6);
-      --radius: 14px;
-      --radius-sm: 10px;
-      --radius-lg: 20px;
+      --paper:        #f4f1ea;
+      --paper-2:      #ece8df;
+      --ink:          #111111;
+      --ink-2:        #1a1a1a;
+      --ink-mute:     #6a6a64;
+      --ink-faint:    #a8a59c;
+      --rule:         #111111;
+      --rule-soft:    rgba(17,17,17,0.14);
+      --rule-hair:    rgba(17,17,17,0.08);
+      --accent:       #e23a1f;
+      --accent-ink:   #b52a14;
+
+      --col-gap:      24px;
+      --row-gap:      24px;
+
+      --type-display: 'Inter', -apple-system, 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      --type-body:    'Inter', -apple-system, 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      --type-mono:    'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+      --type-serif:   'Instrument Serif', Georgia, 'Times New Roman', serif;
     }
 
     html {
       scroll-behavior: smooth;
       -webkit-text-size-adjust: 100%;
+      background: var(--paper);
     }
 
     body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: var(--bg);
-      color: var(--text);
+      font-family: var(--type-body);
+      background: var(--paper);
+      color: var(--ink);
       min-height: 100vh;
       overflow-x: hidden;
       font-size: 16px;
-      line-height: 1.55;
+      line-height: 1.5;
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
       text-rendering: optimizeLegibility;
-      -webkit-tap-highlight-color: transparent;
+      font-feature-settings: 'ss01', 'cv11';
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 1;
+      opacity: 0.35;
+      mix-blend-mode: multiply;
+      background-image: radial-gradient(rgba(17,17,17,0.04) 1px, transparent 1px);
+      background-size: 3px 3px;
     }
 
     img { max-width: 100%; display: block; }
     button { font: inherit; cursor: pointer; border: none; background: none; color: inherit; }
     a { color: inherit; text-decoration: none; }
+    ::selection { background: var(--ink); color: var(--paper); }
 
-    ::selection { background: rgba(139, 92, 246, 0.4); color: #fff; }
-
-    /* ─── Ambient background glow ─── */
-    .ambient {
-      position: fixed;
-      inset: 0;
-      pointer-events: none;
-      z-index: 0;
-      overflow: hidden;
-    }
-    .ambient::before,
-    .ambient::after {
-      content: '';
-      position: absolute;
-      width: 60vw;
-      height: 60vw;
-      max-width: 800px;
-      max-height: 800px;
-      border-radius: 50%;
-      filter: blur(120px);
-      opacity: 0.35;
-    }
-    .ambient::before {
-      top: -10%;
-      left: -10%;
-      background: radial-gradient(circle, #8b5cf6 0%, transparent 70%);
-    }
-    .ambient::after {
-      bottom: -20%;
-      right: -10%;
-      background: radial-gradient(circle, #06b6d4 0%, transparent 70%);
-    }
-
-    /* Subtle grid overlay */
-    .grid-overlay {
-      position: fixed;
-      inset: 0;
-      background-image:
-        linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
-      background-size: 56px 56px;
-      pointer-events: none;
-      z-index: 1;
-      mask-image: radial-gradient(ellipse at center, black 30%, transparent 80%);
-      -webkit-mask-image: radial-gradient(ellipse at center, black 30%, transparent 80%);
-    }
-
-    /* ─── Container ─── */
-    .container {
+    /* ───── Grid container ───── */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      column-gap: var(--col-gap);
       width: 100%;
-      max-width: 1200px;
+      max-width: 1320px;
       margin: 0 auto;
       padding: 0 24px;
       position: relative;
       z-index: 2;
     }
 
-    /* ─── Navigation ─── */
-    .nav {
+    /* ───── Top hairline / status bar ───── */
+    .topline {
+      border-bottom: 1px solid var(--rule);
+      padding: 10px 0;
+      font-family: var(--type-mono);
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--ink);
+      background: var(--paper);
       position: sticky;
       top: 0;
-      z-index: 100;
-      backdrop-filter: blur(20px) saturate(180%);
-      -webkit-backdrop-filter: blur(20px) saturate(180%);
-      background: rgba(6, 7, 11, 0.7);
-      border-bottom: 1px solid var(--border);
+      z-index: 50;
     }
-    .nav-inner {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      height: 64px;
-    }
-    .logo {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      font-weight: 700;
-      font-size: 17px;
-      letter-spacing: -0.02em;
-    }
-    .logo-mark {
-      width: 30px;
-      height: 30px;
-      border-radius: 8px;
-      background: var(--gradient);
-      display: grid;
-      place-items: center;
-      box-shadow: 0 4px 14px rgba(139, 92, 246, 0.4);
-      flex-shrink: 0;
-    }
-    .logo-mark svg { width: 16px; height: 16px; color: #fff; }
-
-    .nav-links {
-      display: flex;
-      align-items: center;
-      gap: 32px;
-    }
-    .nav-links a {
-      color: var(--text-dim);
-      font-size: 14px;
-      font-weight: 500;
-      transition: color 0.2s ease;
-    }
-    .nav-links a:hover { color: var(--text); }
-
-    .nav-cta {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 9px 18px;
-      background: var(--text);
-      color: var(--bg);
-      border-radius: 999px;
-      font-size: 14px;
-      font-weight: 600;
-      transition: transform 0.2s ease, box-shadow 0.2s ease;
-    }
-    .nav-cta:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 8px 20px rgba(255,255,255,0.15);
+    .topline .grid { align-items: center; }
+    .topline-left  { grid-column: 1 / span 4; display: flex; gap: 18px; align-items: center; }
+    .topline-mid   { grid-column: 5 / span 4; text-align: center; color: var(--ink-mute); }
+    .topline-right { grid-column: 9 / span 4; text-align: right; display: flex; gap: 18px; justify-content: flex-end; align-items: center; }
+    .topline a:hover { color: var(--accent-ink); }
+    .topline .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); display: inline-block; vertical-align: middle; margin-right: 6px; animation: pulse 2.4s ease-in-out infinite; }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%      { opacity: 0.5; transform: scale(0.75); }
     }
 
-    .nav-menu {
+    /* ───── Menu button: two-state icon via CSS classes ───── */
+    .menu-btn {
       display: none;
-      width: 40px;
-      height: 40px;
-      border-radius: 10px;
-      border: 1px solid var(--border);
+      width: 32px;
+      height: 32px;
+      border: 1px solid var(--ink);
       align-items: center;
       justify-content: center;
-      transition: background 0.2s ease;
+      background: var(--paper);
     }
-    .nav-menu:hover { background: var(--surface); }
-    .nav-menu svg { width: 20px; height: 20px; }
+    .menu-btn svg { width: 16px; height: 16px; }
+    .menu-btn .icon-close { display: none; }
+    .menu-btn[aria-expanded="true"] .icon-open  { display: none; }
+    .menu-btn[aria-expanded="true"] .icon-close { display: inline; }
 
-    /* ─── Hero ─── */
-    .hero {
-      padding: clamp(60px, 10vw, 120px) 0 clamp(48px, 8vw, 96px);
-      position: relative;
+    /* ───── Masthead ───── */
+    .masthead {
+      border-bottom: 1px solid var(--rule);
+      padding: 18px 0;
     }
-    .hero-grid {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: clamp(40px, 6vw, 72px);
-      align-items: center;
+    .masthead .grid { align-items: end; }
+    .mast-title {
+      grid-column: 1 / span 7;
+      font-family: var(--type-display);
+      font-weight: 900;
+      font-size: clamp(54px, 14vw, 188px);
+      line-height: 0.86;
+      letter-spacing: -0.06em;
+      color: var(--ink);
     }
-
-    .badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 6px 14px 6px 8px;
-      border-radius: 999px;
-      background: var(--surface);
-      border: 1px solid var(--border-strong);
-      font-size: 13px;
-      font-weight: 500;
-      color: var(--text-dim);
-      margin-bottom: 24px;
+    .mast-title .slash {
+      color: var(--accent);
+      font-style: italic;
+      font-family: var(--type-serif);
+      font-weight: 400;
+      letter-spacing: -0.02em;
     }
-    .badge-pill {
-      padding: 2px 8px;
-      border-radius: 999px;
-      background: var(--gradient);
-      color: #fff;
+    .mast-meta {
+      grid-column: 9 / span 4;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-family: var(--type-mono);
       font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.04em;
+      letter-spacing: 0.06em;
       text-transform: uppercase;
+      color: var(--ink-mute);
+      padding-bottom: 14px;
     }
+    .mast-meta strong { color: var(--ink); font-weight: 600; }
+    .mast-meta hr { border: 0; border-top: 1px solid var(--rule-soft); margin: 4px 0; }
 
-    h1.headline {
-      font-size: clamp(36px, 7vw, 72px);
-      font-weight: 800;
-      line-height: 1.04;
+    /* ───── Hero / lede ───── */
+    .lede {
+      padding: 56px 0 40px;
+      border-bottom: 1px solid var(--rule);
+    }
+    .lede-issue {
+      grid-column: 1 / span 12;
+      font-family: var(--type-mono);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: var(--ink-mute);
+      margin-bottom: 32px;
+      display: flex;
+      gap: 18px;
+    }
+    .lede-issue span:first-child { color: var(--ink); }
+    .lede-head {
+      grid-column: 1 / span 8;
+      font-family: var(--type-display);
+      font-weight: 700;
+      font-size: clamp(34px, 5.6vw, 78px);
+      line-height: 1.02;
       letter-spacing: -0.035em;
-      color: var(--text);
-      margin-bottom: 24px;
+      color: var(--ink);
+      max-width: 14ch;
     }
-    .headline .gradient-text {
-      background: var(--gradient);
-      -webkit-background-clip: text;
-      background-clip: text;
-      -webkit-text-fill-color: transparent;
-      color: transparent;
+    .lede-head em {
+      font-family: var(--type-serif);
+      font-style: italic;
+      font-weight: 400;
+      color: var(--ink);
+      letter-spacing: -0.01em;
     }
+    .lede-head .underline {
+      background-image: linear-gradient(var(--accent), var(--accent));
+      background-repeat: no-repeat;
+      background-size: 100% 6px;
+      background-position: 0 100%;
+      padding-bottom: 0.05em;
+    }
+    .lede-aside {
+      grid-column: 10 / span 3;
+      font-family: var(--type-mono);
+      font-size: 11px;
+      letter-spacing: 0.04em;
+      color: var(--ink-mute);
+      align-self: end;
+      text-transform: uppercase;
+      border-left: 1px solid var(--rule);
+      padding-left: 16px;
+    }
+    .lede-aside strong { display: block; color: var(--ink); font-weight: 600; margin-bottom: 6px; }
 
-    .hero-sub {
-      font-size: clamp(16px, 2vw, 19px);
-      line-height: 1.6;
-      color: var(--text-dim);
-      max-width: 560px;
-      margin-bottom: 36px;
+    .lede-sub {
+      grid-column: 1 / span 7;
+      margin-top: 40px;
+      font-size: clamp(17px, 1.55vw, 21px);
+      line-height: 1.45;
+      color: var(--ink-2);
+      letter-spacing: -0.005em;
+      max-width: 56ch;
     }
+    .lede-sub b { font-weight: 600; color: var(--ink); }
 
-    .cta-row {
+    .lede-actions {
+      grid-column: 1 / span 12;
+      margin-top: 40px;
       display: flex;
       flex-wrap: wrap;
-      gap: 12px;
-      margin-bottom: 36px;
+      gap: 14px;
+      align-items: center;
     }
+    .lede-actions .meta {
+      margin-left: auto;
+      font-family: var(--type-mono);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--ink-mute);
+    }
+
     .btn {
       display: inline-flex;
       align-items: center;
-      gap: 8px;
-      padding: 14px 24px;
-      border-radius: 12px;
-      font-size: 15px;
-      font-weight: 600;
-      transition: all 0.2s ease;
-      border: 1px solid transparent;
-      white-space: nowrap;
-    }
-    .btn-primary {
-      background: var(--gradient);
-      color: #fff;
-      box-shadow: 0 8px 24px rgba(139, 92, 246, 0.3);
-    }
-    .btn-primary:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 12px 32px rgba(139, 92, 246, 0.45);
-    }
-    .btn-secondary {
-      background: var(--surface);
-      border-color: var(--border-strong);
-      color: var(--text);
-    }
-    .btn-secondary:hover {
-      background: var(--surface-2);
-      border-color: rgba(255,255,255,0.18);
-    }
-    .btn svg { width: 16px; height: 16px; }
-
-    .trust-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 20px 28px;
-      align-items: center;
-      font-size: 13px;
-      color: var(--text-muted);
-    }
-    .trust-item {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .trust-item svg { width: 16px; height: 16px; color: var(--accent); }
-
-    /* ─── Hero visual / preview ─── */
-    .hero-visual {
-      position: relative;
-      width: 100%;
-    }
-    .visual-frame {
-      position: relative;
-      border-radius: var(--radius-lg);
-      border: 1px solid var(--border-strong);
-      background: linear-gradient(180deg, var(--surface) 0%, var(--bg-2) 100%);
-      padding: 14px;
-      box-shadow: var(--shadow-lg);
-      overflow: hidden;
-    }
-    .visual-frame::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      border-radius: var(--radius-lg);
-      padding: 1px;
-      background: linear-gradient(180deg, rgba(255,255,255,0.1), transparent 50%);
-      -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-      -webkit-mask-composite: xor;
-      mask-composite: exclude;
-      pointer-events: none;
-    }
-
-    .browser-bar {
-      display: flex;
-      align-items: center;
       gap: 10px;
-      padding: 4px 4px 12px;
-      border-bottom: 1px solid var(--border);
-      margin-bottom: 14px;
-    }
-    .browser-dots { display: flex; gap: 6px; }
-    .browser-dots span {
-      width: 11px;
-      height: 11px;
-      border-radius: 50%;
-      background: rgba(255,255,255,0.12);
-    }
-    .browser-url {
-      flex: 1;
-      padding: 5px 12px;
-      background: var(--bg);
-      border-radius: 999px;
+      padding: 14px 22px;
+      font-family: var(--type-mono);
       font-size: 12px;
-      color: var(--text-muted);
-      font-family: 'JetBrains Mono', monospace;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .search-result {
-      padding: 14px 14px 16px;
-      border-radius: var(--radius-sm);
-      transition: background 0.2s ease;
-      position: relative;
-    }
-    .search-result + .search-result { margin-top: 4px; }
-    .search-result.highlight {
-      background: rgba(139, 92, 246, 0.08);
-      border: 1px solid rgba(139, 92, 246, 0.2);
-    }
-    .sr-url {
-      font-size: 12px;
-      color: var(--text-muted);
-      margin-bottom: 4px;
-    }
-    .sr-title {
-      font-size: 15px;
-      font-weight: 600;
-      color: var(--accent-2);
-      margin-bottom: 4px;
-      line-height: 1.35;
-    }
-    .sr-snippet {
-      font-size: 12.5px;
-      color: var(--text-muted);
-      line-height: 1.5;
-    }
-
-    .preview-card {
-      position: absolute;
-      left: 50%;
-      transform: translateX(-50%);
-      bottom: 12px;
-      width: calc(100% - 28px);
-      max-width: 420px;
-      background: linear-gradient(180deg, var(--surface-2) 0%, var(--surface) 100%);
-      border: 1px solid var(--border-strong);
-      border-radius: var(--radius);
-      padding: 16px 18px;
-      box-shadow: 0 20px 50px rgba(0,0,0,0.6), 0 0 0 1px rgba(139,92,246,0.15);
-      animation: cardFloat 4s ease-in-out infinite;
-    }
-    @keyframes cardFloat {
-      0%, 100% { transform: translateX(-50%) translateY(0); }
-      50%      { transform: translateX(-50%) translateY(-6px); }
-    }
-    .pc-head {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 10px;
-      padding-bottom: 10px;
-      border-bottom: 1px solid var(--border);
-    }
-    .pc-favicon {
-      width: 22px;
-      height: 22px;
-      border-radius: 6px;
-      background: var(--gradient);
-      display: grid;
-      place-items: center;
-      font-size: 10px;
-      font-weight: 700;
-      color: #fff;
-      flex-shrink: 0;
-    }
-    .pc-host {
-      font-size: 12px;
-      color: var(--text-dim);
-      font-weight: 500;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .pc-tag {
-      margin-left: auto;
-      font-size: 10px;
-      padding: 3px 8px;
-      border-radius: 999px;
-      background: rgba(6, 182, 212, 0.15);
-      color: var(--accent-2);
-      font-weight: 600;
-      flex-shrink: 0;
-    }
-    .pc-title {
-      font-size: 14px;
-      font-weight: 600;
-      color: var(--text);
-      line-height: 1.4;
-      margin-bottom: 12px;
-    }
-    .pc-list {
-      list-style: none;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-    .pc-list li {
-      display: grid;
-      grid-template-columns: 18px 1fr;
-      gap: 8px;
-      font-size: 12.5px;
-      color: var(--text-dim);
-      line-height: 1.45;
-    }
-    .pc-list li .icon {
-      width: 18px;
-      height: 18px;
-      border-radius: 5px;
-      background: rgba(139, 92, 246, 0.12);
-      display: grid;
-      place-items: center;
-      font-size: 10px;
-    }
-    .pc-list li strong {
-      color: var(--text);
-      font-weight: 600;
-    }
-
-    /* ─── Section heads ─── */
-    .section {
-      padding: clamp(60px, 9vw, 110px) 0;
-      position: relative;
-    }
-    .section-head {
-      text-align: center;
-      max-width: 720px;
-      margin: 0 auto clamp(40px, 6vw, 64px);
-    }
-    .eyebrow {
-      display: inline-block;
-      font-size: 13px;
       font-weight: 600;
       letter-spacing: 0.1em;
       text-transform: uppercase;
-      background: var(--gradient);
-      -webkit-background-clip: text;
-      background-clip: text;
-      -webkit-text-fill-color: transparent;
-      color: transparent;
+      border: 1px solid var(--ink);
+      background: var(--paper);
+      color: var(--ink);
+      transition: background 0.16s ease, color 0.16s ease, transform 0.16s ease;
+      border-radius: 0;
+    }
+    .btn:hover {
+      background: var(--ink);
+      color: var(--paper);
+      transform: translateY(-1px);
+    }
+    .btn.solid {
+      background: var(--ink);
+      color: var(--paper);
+    }
+    .btn.solid:hover {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+    .btn .arrow {
+      display: inline-block;
+      width: 14px;
+      height: 1px;
+      background: currentColor;
+      position: relative;
+      transition: transform 0.2s ease;
+    }
+    .btn .arrow::after {
+      content: '';
+      position: absolute;
+      right: -1px;
+      top: -3px;
+      width: 7px;
+      height: 7px;
+      border-top: 1px solid currentColor;
+      border-right: 1px solid currentColor;
+      transform: rotate(45deg);
+    }
+    .btn:hover .arrow { transform: translateX(4px); }
+
+    /* ───── Section anatomy ───── */
+    section { border-bottom: 1px solid var(--rule); }
+    .sec-pad { padding: 80px 0; }
+    .sec-head {
+      grid-column: 1 / span 12;
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      column-gap: var(--col-gap);
+      margin-bottom: 48px;
+      align-items: end;
+    }
+    .sec-num {
+      grid-column: 1 / span 2;
+      font-family: var(--type-mono);
+      font-size: 11px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--ink-mute);
+      padding-top: 6px;
+      border-top: 1px solid var(--ink);
+    }
+    .sec-num strong { color: var(--ink); font-weight: 600; display: block; margin-top: 4px; font-size: 13px; }
+    .sec-title {
+      grid-column: 3 / span 7;
+      font-family: var(--type-display);
+      font-size: clamp(28px, 3.6vw, 48px);
+      font-weight: 600;
+      line-height: 1.04;
+      letter-spacing: -0.028em;
+      color: var(--ink);
+      max-width: 22ch;
+    }
+    .sec-title em {
+      font-family: var(--type-serif);
+      font-weight: 400;
+      font-style: italic;
+      color: var(--ink);
+      letter-spacing: -0.01em;
+    }
+    .sec-byline {
+      grid-column: 10 / span 3;
+      font-family: var(--type-mono);
+      font-size: 11px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--ink-mute);
+      text-align: right;
+      padding-bottom: 4px;
+    }
+
+    /* ───── 01 — Index / TOC ───── */
+    .toc {
+      grid-column: 1 / span 12;
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      column-gap: var(--col-gap);
+      row-gap: 0;
+      border-top: 1px solid var(--rule);
+    }
+    .toc-row {
+      grid-column: 1 / span 12;
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      column-gap: var(--col-gap);
+      align-items: baseline;
+      padding: 22px 0;
+      border-bottom: 1px solid var(--rule-soft);
+      transition: background 0.16s ease, padding 0.18s ease;
+      position: relative;
+    }
+    .toc-row:hover {
+      background: var(--paper-2);
+      padding-left: 12px;
+      padding-right: 12px;
+    }
+    .toc-row::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 0;
+      background: var(--accent);
+      transition: width 0.18s ease;
+    }
+    .toc-row:hover::before { width: 4px; }
+    .toc-num {
+      grid-column: 1 / span 1;
+      font-family: var(--type-mono);
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      color: var(--ink-mute);
+    }
+    .toc-name {
+      grid-column: 2 / span 5;
+      font-family: var(--type-display);
+      font-size: clamp(22px, 2.2vw, 30px);
+      font-weight: 500;
+      letter-spacing: -0.02em;
+      color: var(--ink);
+    }
+    .toc-name em {
+      font-family: var(--type-serif);
+      font-style: italic;
+      font-weight: 400;
+    }
+    .toc-desc {
+      grid-column: 7 / span 4;
+      font-size: 14px;
+      color: var(--ink-mute);
+      line-height: 1.45;
+    }
+    .toc-page {
+      grid-column: 12 / span 1;
+      text-align: right;
+      font-family: var(--type-mono);
+      font-size: 12px;
+      letter-spacing: 0.06em;
+      color: var(--ink-mute);
+    }
+
+    /* ───── 02 — Principles ───── */
+    .principles {
+      grid-column: 1 / span 12;
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      column-gap: var(--col-gap);
+      row-gap: 0;
+      border-top: 1px solid var(--rule);
+    }
+    .principle {
+      grid-column: span 4;
+      padding: 36px 24px 36px 0;
+      border-bottom: 1px solid var(--rule-soft);
+      border-right: 1px solid var(--rule-soft);
+      position: relative;
+    }
+    .principle:nth-child(3n) { border-right: none; padding-right: 0; }
+    .principle:nth-child(3n+1) { padding-left: 0; }
+    .principle:nth-child(3n+2),
+    .principle:nth-child(3n+3) { padding-left: 24px; }
+    .principle:nth-last-child(-n+3) { border-bottom: none; }
+    .p-num {
+      font-family: var(--type-mono);
+      font-size: 11px;
+      letter-spacing: 0.14em;
+      color: var(--ink-mute);
+      margin-bottom: 28px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .p-num em {
+      font-family: var(--type-mono);
+      font-style: normal;
+      color: var(--accent);
+      font-size: 10px;
+      letter-spacing: 0.1em;
+    }
+    .p-title {
+      font-family: var(--type-display);
+      font-size: clamp(22px, 2.1vw, 28px);
+      font-weight: 600;
+      line-height: 1.1;
+      letter-spacing: -0.022em;
+      color: var(--ink);
+      margin-bottom: 14px;
+      max-width: 16ch;
+    }
+    .p-title em {
+      font-family: var(--type-serif);
+      font-style: italic;
+      font-weight: 400;
+    }
+    .p-body {
+      font-size: 14.5px;
+      line-height: 1.55;
+      color: var(--ink-mute);
+      max-width: 32ch;
+    }
+    .p-body b { color: var(--ink); font-weight: 600; }
+
+    /* ───── 03 — Mechanism ───── */
+    .mech {
+      grid-column: 1 / span 12;
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      column-gap: var(--col-gap);
+      row-gap: 0;
+    }
+    .mech-step {
+      grid-column: span 12;
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      column-gap: var(--col-gap);
+      padding: 36px 0;
+      border-top: 1px solid var(--rule);
+      align-items: start;
+    }
+    .mech-step:last-child { border-bottom: 1px solid var(--rule); }
+    .mech-marker {
+      grid-column: 1 / span 1;
+      font-family: var(--type-mono);
+      font-size: 11px;
+      letter-spacing: 0.16em;
+      color: var(--ink-mute);
+      text-transform: uppercase;
+    }
+    .mech-marker strong {
+      display: block;
+      font-family: var(--type-display);
+      font-weight: 700;
+      font-size: 44px;
+      letter-spacing: -0.04em;
+      color: var(--ink);
+      margin-top: 4px;
+      line-height: 1;
+    }
+    .mech-title {
+      grid-column: 3 / span 5;
+      font-family: var(--type-display);
+      font-size: clamp(22px, 2.4vw, 30px);
+      font-weight: 600;
+      line-height: 1.1;
+      letter-spacing: -0.022em;
+      color: var(--ink);
+    }
+    .mech-title em {
+      font-family: var(--type-serif);
+      font-style: italic;
+      font-weight: 400;
+    }
+    .mech-body {
+      grid-column: 9 / span 4;
+      font-size: 15px;
+      line-height: 1.55;
+      color: var(--ink-mute);
+    }
+    .mech-body code {
+      font-family: var(--type-mono);
+      font-size: 12px;
+      background: var(--paper-2);
+      padding: 2px 6px;
+      color: var(--ink);
+    }
+
+    /* ───── 04 — Specimen / anatomy ───── */
+    .plate {
+      grid-column: 1 / span 12;
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      column-gap: var(--col-gap);
+      align-items: start;
+      padding-top: 8px;
+    }
+    .plate-left {
+      grid-column: 1 / span 5;
+      font-family: var(--type-mono);
+      font-size: 12px;
+      letter-spacing: 0.04em;
+      color: var(--ink-mute);
+      line-height: 1.6;
+    }
+    .plate-left .label {
+      text-transform: uppercase;
+      color: var(--ink);
+      letter-spacing: 0.14em;
+      font-size: 10px;
+      margin-top: 18px;
+      margin-bottom: 6px;
+      display: block;
+      padding-top: 10px;
+      border-top: 1px solid var(--rule-soft);
+    }
+    .plate-left .label:first-child { margin-top: 0; border-top: none; padding-top: 0; }
+    .plate-left .value {
+      font-family: var(--type-display);
+      font-size: 17px;
+      color: var(--ink);
+      font-weight: 500;
+      letter-spacing: -0.01em;
+    }
+
+    .specimen {
+      grid-column: 7 / span 6;
+      border: 1px solid var(--ink);
+      background: var(--paper);
+      padding: 24px;
+      position: relative;
+    }
+    .specimen::before,
+    .specimen::after {
+      content: '';
+      position: absolute;
+      width: 14px;
+      height: 14px;
+      border: 1px solid var(--ink);
+      background: var(--paper);
+    }
+    .specimen::before { top: -7px; left: -7px; }
+    .specimen::after  { bottom: -7px; right: -7px; }
+
+    .spec-meta {
+      display: flex;
+      justify-content: space-between;
+      font-family: var(--type-mono);
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--ink-mute);
+      margin-bottom: 18px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--rule-soft);
+    }
+    .spec-meta .ms { color: var(--accent); font-weight: 600; }
+    .spec-host {
+      font-family: var(--type-mono);
+      font-size: 12px;
+      color: var(--ink);
       margin-bottom: 14px;
     }
-    h2.section-title {
-      font-size: clamp(28px, 4.5vw, 46px);
-      font-weight: 700;
-      line-height: 1.15;
-      letter-spacing: -0.025em;
-      color: var(--text);
-      margin-bottom: 16px;
-    }
-    .section-sub {
-      font-size: clamp(15px, 1.6vw, 17px);
-      color: var(--text-dim);
-      line-height: 1.6;
-    }
-
-    /* ─── Features ─── */
-    .features-grid {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 16px;
-    }
-    .feature {
-      padding: 28px;
-      border-radius: var(--radius);
-      background: var(--surface);
-      border: 1px solid var(--border);
-      transition: transform 0.3s ease, border-color 0.3s ease, background 0.3s ease;
-      position: relative;
-      overflow: hidden;
-    }
-    .feature:hover {
-      transform: translateY(-4px);
-      border-color: var(--border-strong);
-      background: var(--surface-2);
-    }
-    .feature-icon {
-      width: 44px;
-      height: 44px;
-      border-radius: 12px;
-      background: var(--gradient-soft);
-      border: 1px solid rgba(139, 92, 246, 0.2);
-      display: grid;
-      place-items: center;
+    .spec-title {
+      font-family: var(--type-display);
+      font-size: 22px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+      color: var(--ink);
       margin-bottom: 18px;
-      color: var(--accent);
+      max-width: 24ch;
     }
-    .feature-icon svg { width: 22px; height: 22px; }
-    .feature h3 {
-      font-size: 17px;
+    .spec-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .spec-list li {
+      display: grid;
+      grid-template-columns: 22px 1fr;
+      gap: 10px;
+      font-size: 14px;
+      line-height: 1.45;
+      color: var(--ink-mute);
+    }
+    .spec-list li b {
+      color: var(--ink);
       font-weight: 600;
-      color: var(--text);
-      margin-bottom: 8px;
-      letter-spacing: -0.01em;
     }
-    .feature p {
-      font-size: 14.5px;
-      color: var(--text-dim);
-      line-height: 1.6;
+    .spec-list .marker {
+      font-family: var(--type-mono);
+      font-size: 11px;
+      color: var(--accent);
+      letter-spacing: 0.04em;
+      padding-top: 1px;
+    }
+    .spec-foot {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 18px;
+      padding-top: 14px;
+      border-top: 1px solid var(--rule-soft);
+      font-family: var(--type-mono);
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--ink-mute);
     }
 
-    /* ─── How it works ─── */
-    .steps {
+    /* ───── 05 — Plates / gallery ───── */
+    .plates {
+      grid-column: 1 / span 12;
       display: grid;
-      grid-template-columns: 1fr;
-      gap: 16px;
-      max-width: 920px;
-      margin: 0 auto;
+      grid-template-columns: repeat(12, 1fr);
+      column-gap: var(--col-gap);
+      row-gap: 40px;
     }
-    .step {
+    .plate-img {
+      position: relative;
+      border: 1px solid var(--rule);
+      background: #0e0f13;
+      overflow: hidden;
       display: flex;
-      gap: 20px;
-      padding: 24px;
-      border-radius: var(--radius);
-      background: var(--surface);
-      border: 1px solid var(--border);
-      align-items: flex-start;
+      flex-direction: column;
     }
-    .step-num {
-      width: 40px;
-      height: 40px;
-      border-radius: 12px;
-      background: var(--gradient);
+    .plate-img .frame {
+      position: relative;
+      flex: 1;
       display: grid;
       place-items: center;
-      font-weight: 700;
-      font-size: 16px;
-      color: #fff;
-      flex-shrink: 0;
-      box-shadow: 0 4px 14px rgba(139, 92, 246, 0.35);
+      padding: 28px;
+      aspect-ratio: 16 / 10;
+      background:
+        radial-gradient(ellipse at top, rgba(255,255,255,0.04), transparent 60%),
+        #0e0f13;
     }
-    .step-body h3 {
+    .plate-img img {
+      max-width: 100%;
+      max-height: 100%;
+      width: auto;
+      height: auto;
+      object-fit: contain;
+      filter: contrast(1.04) saturate(1.02);
+      transition: transform 0.4s ease;
+      box-shadow: 0 18px 40px rgba(0,0,0,0.55);
+    }
+    .plate-img:hover img { transform: scale(1.015); }
+    .plate-img .caption {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 16px;
+      align-items: center;
+      padding: 12px 16px;
+      background: var(--paper);
+      color: var(--ink);
+      border-top: 1px solid var(--ink);
+      font-family: var(--type-mono);
+      font-size: 10.5px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+    .plate-img .caption .src { color: var(--ink); font-weight: 600; }
+    .plate-img .caption .num { color: var(--ink-mute); }
+    .plate-img .stamp {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      font-family: var(--type-mono);
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.85);
+      background: rgba(0,0,0,0.55);
+      padding: 5px 9px;
+      border: 1px solid rgba(255,255,255,0.18);
+      backdrop-filter: blur(4px);
+    }
+    .plate-img .stamp em {
+      font-family: var(--type-mono);
+      font-style: normal;
+      color: var(--accent);
+      margin-right: 6px;
+    }
+    .plate-img.a { grid-column: span 8; }
+    .plate-img.b { grid-column: span 4; }
+    .plate-img.c { grid-column: span 4; }
+    .plate-img.d { grid-column: span 4; }
+    .plate-img.e { grid-column: span 4; }
+    .plate-img.f { grid-column: span 8; }
+    .plate-img.a .frame,
+    .plate-img.f .frame { aspect-ratio: 16 / 9; padding: 36px; }
+    .plate-img.b .frame,
+    .plate-img.c .frame,
+    .plate-img.d .frame,
+    .plate-img.e .frame { aspect-ratio: 4 / 3; padding: 22px; }
+
+    /* ───── 06 — Specifications table ───── */
+    .specs {
+      grid-column: 1 / span 12;
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      column-gap: var(--col-gap);
+      border-top: 1px solid var(--rule);
+    }
+    .spec-row {
+      grid-column: 1 / span 12;
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      column-gap: var(--col-gap);
+      padding: 20px 0;
+      border-bottom: 1px solid var(--rule-soft);
+      align-items: baseline;
+    }
+    .spec-row .k {
+      grid-column: 1 / span 3;
+      font-family: var(--type-mono);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--ink-mute);
+    }
+    .spec-row .v {
+      grid-column: 4 / span 6;
+      font-family: var(--type-display);
       font-size: 18px;
-      font-weight: 600;
-      margin-bottom: 6px;
+      font-weight: 500;
       letter-spacing: -0.01em;
+      color: var(--ink);
     }
-    .step-body p {
-      font-size: 14.5px;
-      color: var(--text-dim);
-      line-height: 1.6;
+    .spec-row .v code {
+      font-family: var(--type-mono);
+      font-size: 13px;
+      background: var(--paper-2);
+      padding: 2px 6px;
+      font-weight: 400;
+    }
+    .spec-row .n {
+      grid-column: 10 / span 3;
+      text-align: right;
+      font-family: var(--type-mono);
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      color: var(--ink-mute);
+      text-transform: uppercase;
     }
 
-    /* ─── Gallery ─── */
-    .gallery {
-      padding: clamp(60px, 9vw, 110px) 0 clamp(40px, 6vw, 80px);
+    /* ───── End / install ───── */
+    .end {
+      grid-column: 1 / span 12;
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      column-gap: var(--col-gap);
+      padding: 32px 0;
+      align-items: end;
     }
-    .scroller {
-      overflow: hidden;
-      mask-image: linear-gradient(to right, transparent, black 6%, black 94%, transparent);
-      -webkit-mask-image: linear-gradient(to right, transparent, black 6%, black 94%, transparent);
-      padding: 12px 0;
+    .end-quote {
+      grid-column: 1 / span 8;
+      font-family: var(--type-serif);
+      font-style: italic;
+      font-weight: 400;
+      font-size: clamp(28px, 4vw, 56px);
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+      color: var(--ink);
+      max-width: 18ch;
     }
-    .scroller-track {
+    .end-quote .accent { color: var(--accent); }
+    .end-actions {
+      grid-column: 9 / span 4;
       display: flex;
-      gap: 20px;
-      width: max-content;
-      animation: scroll 45s linear infinite;
+      flex-direction: column;
+      gap: 12px;
+      align-items: flex-end;
     }
-    .scroller:hover .scroller-track,
-    .scroller-track:focus-within { animation-play-state: paused; }
-    @keyframes scroll {
+    .end-byline {
+      grid-column: 1 / span 12;
+      margin-top: 56px;
+      font-family: var(--type-mono);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--ink-mute);
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+      padding-top: 24px;
+      border-top: 1px solid var(--rule);
+    }
+
+    /* ───── Colophon / footer ───── */
+    .colophon {
+      padding: 56px 0 40px;
+      border-top: 0;
+    }
+    .colophon .grid { row-gap: 32px; }
+    .col-brand { grid-column: 1 / span 4; }
+    .col-brand .mark {
+      font-family: var(--type-display);
+      font-weight: 900;
+      font-size: 56px;
+      letter-spacing: -0.05em;
+      line-height: 1;
+      color: var(--ink);
+    }
+    .col-brand .mark span { color: var(--accent); }
+    .col-brand p {
+      margin-top: 14px;
+      font-size: 13.5px;
+      color: var(--ink-mute);
+      max-width: 36ch;
+      line-height: 1.5;
+    }
+    .col-links {
+      grid-column: span 2;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .col-links h4 {
+      font-family: var(--type-mono);
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--ink-mute);
+      margin-bottom: 4px;
+    }
+    .col-links a {
+      font-size: 14px;
+      color: var(--ink);
+      transition: color 0.16s ease;
+    }
+    .col-links a:hover { color: var(--accent-ink); }
+    .col-meta {
+      grid-column: 1 / span 12;
+      padding-top: 32px;
+      margin-top: 16px;
+      border-top: 1px solid var(--rule);
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+      font-family: var(--type-mono);
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--ink-mute);
+    }
+
+    /* ───── Drawer ───── */
+    .drawer {
+      position: fixed;
+      inset: 41px 0 0;
+      z-index: 49;
+      background: var(--paper);
+      display: none;
+      flex-direction: column;
+      gap: 0;
+      padding: 0;
+      border-top: 1px solid var(--rule);
+    }
+    .drawer.open { display: flex; }
+    .drawer a {
+      padding: 22px 24px;
+      font-family: var(--type-display);
+      font-weight: 500;
+      font-size: 24px;
+      letter-spacing: -0.02em;
+      color: var(--ink);
+      border-bottom: 1px solid var(--rule-soft);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .drawer a::after {
+      content: '→';
+      font-family: var(--type-mono);
+      color: var(--ink-mute);
+      font-size: 18px;
+    }
+    .drawer a.primary {
+      background: var(--ink);
+      color: var(--paper);
+      margin-top: auto;
+    }
+    .drawer a.primary::after { color: var(--paper); }
+
+    /* ───── Ticker ───── */
+    .ticker {
+      border-top: 1px solid var(--rule);
+      border-bottom: 1px solid var(--rule);
+      overflow: hidden;
+      padding: 14px 0;
+      background: var(--paper-2);
+    }
+    .ticker-track {
+      display: flex;
+      gap: 48px;
+      width: max-content;
+      animation: tickscroll 38s linear infinite;
+      font-family: var(--type-mono);
+      font-size: 12px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--ink);
+      align-items: center;
+    }
+    .ticker-track span {
+      display: inline-flex;
+      align-items: center;
+      gap: 14px;
+      white-space: nowrap;
+    }
+    .ticker-track span::after {
+      content: '◆';
+      color: var(--accent);
+      font-size: 8px;
+      margin-left: 14px;
+    }
+    @keyframes tickscroll {
       from { transform: translateX(0); }
       to   { transform: translateX(-50%); }
     }
-    .gallery-img {
-      height: clamp(220px, 28vw, 320px);
-      width: auto;
-      flex-shrink: 0;
-      border-radius: var(--radius);
-      border: 1px solid var(--border-strong);
-      box-shadow: var(--shadow-md);
-      transition: transform 0.3s ease;
-    }
-    .gallery-img:hover { transform: translateY(-4px); }
 
-    /* ─── CTA ─── */
-    .cta-section {
-      padding: clamp(60px, 9vw, 110px) 0;
-    }
-    .cta-card {
-      position: relative;
-      border-radius: var(--radius-lg);
-      padding: clamp(40px, 6vw, 72px) clamp(24px, 5vw, 56px);
-      text-align: center;
-      background:
-        radial-gradient(ellipse at top, rgba(139, 92, 246, 0.18), transparent 60%),
-        radial-gradient(ellipse at bottom right, rgba(6, 182, 212, 0.12), transparent 60%),
-        var(--surface);
-      border: 1px solid var(--border-strong);
-      overflow: hidden;
-    }
-    .cta-card::before {
-      content: '';
-      position: absolute;
-      top: -1px; left: -1px; right: -1px;
-      height: 2px;
-      background: var(--gradient);
-      opacity: 0.6;
-    }
-    .cta-card h2 {
-      font-size: clamp(28px, 5vw, 48px);
-      font-weight: 700;
-      line-height: 1.1;
-      letter-spacing: -0.03em;
-      margin-bottom: 16px;
-    }
-    .cta-card p {
-      font-size: clamp(15px, 1.7vw, 18px);
-      color: var(--text-dim);
-      margin-bottom: 32px;
-      max-width: 540px;
-      margin-left: auto;
-      margin-right: auto;
-    }
-    .cta-card .cta-row {
-      justify-content: center;
-      margin-bottom: 0;
-    }
-
-    /* ─── Footer ─── */
-    footer {
-      padding: 48px 0 32px;
-      border-top: 1px solid var(--border);
-      margin-top: 40px;
-    }
-    .footer-inner {
-      display: flex;
-      flex-direction: column;
-      gap: 24px;
-      align-items: center;
-      text-align: center;
-    }
-    .footer-links {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px 24px;
-      justify-content: center;
-      font-size: 14px;
-    }
-    .footer-links a {
-      color: var(--text-dim);
-      transition: color 0.2s ease;
-    }
-    .footer-links a:hover { color: var(--text); }
-    .footer-meta {
-      font-size: 13px;
-      color: var(--text-muted);
-    }
-
-    /* ─── Reveal animation ─── */
-    .reveal {
-      opacity: 0;
-      transform: translateY(24px);
-      transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
-    }
-    .reveal.visible { opacity: 1; transform: translateY(0); }
-
-    /* ─── Mobile menu drawer ─── */
-    .mobile-drawer {
-      position: fixed;
-      inset: 64px 0 0;
-      z-index: 99;
-      background: rgba(6, 7, 11, 0.97);
-      backdrop-filter: blur(24px);
-      -webkit-backdrop-filter: blur(24px);
-      padding: 32px 24px;
-      display: none;
-      flex-direction: column;
-      gap: 8px;
-      animation: drawerIn 0.25s ease;
-    }
-    .mobile-drawer.open { display: flex; }
-    .mobile-drawer a {
-      padding: 14px 16px;
-      border-radius: 12px;
-      font-size: 17px;
-      font-weight: 500;
-      color: var(--text);
-      border: 1px solid var(--border);
-      background: var(--surface);
-    }
-    .mobile-drawer a.primary {
-      background: var(--gradient);
-      border-color: transparent;
-      text-align: center;
-      margin-top: 8px;
-    }
-    @keyframes drawerIn {
-      from { opacity: 0; transform: translateY(-8px); }
-      to   { opacity: 1; transform: translateY(0); }
-    }
-
-    /* ─── Tablet+ ─── */
-    @media (min-width: 720px) {
-      .hero-grid {
-        grid-template-columns: 1.05fr 1fr;
-        gap: 56px;
-      }
-      .features-grid {
-        grid-template-columns: repeat(2, 1fr);
-        gap: 20px;
-      }
-      .footer-inner {
-        flex-direction: row;
-        justify-content: space-between;
-        text-align: left;
-      }
-      .footer-links { justify-content: flex-start; }
-    }
-
-    /* ─── Desktop ─── */
-    @media (min-width: 1024px) {
-      .container { padding: 0 32px; }
-      .features-grid { grid-template-columns: repeat(3, 1fr); }
-      .nav-menu { display: none !important; }
-    }
-
-    /* ─── Tablet/Mobile nav ─── */
+    /* ───── Responsive ───── */
     @media (max-width: 1023px) {
-      .nav-links { display: none; }
-      .nav-cta { display: none; }
-      .nav-menu { display: flex; }
+      :root { --col-gap: 16px; }
+      .topline-mid { display: none; }
+      .topline-left { grid-column: 1 / span 6; }
+      .topline-right { grid-column: 7 / span 6; gap: 14px; }
+      .topline-right .nav-link { display: none; }
+      .menu-btn { display: inline-flex; }
+
+      .mast-title { grid-column: 1 / span 12; }
+      .mast-meta { grid-column: 1 / span 12; flex-direction: row; flex-wrap: wrap; gap: 14px; padding-bottom: 4px; }
+      .mast-meta hr { display: none; }
+
+      .lede-head { grid-column: 1 / span 12; }
+      .lede-aside { grid-column: 1 / span 12; border-left: none; padding-left: 0; border-top: 1px solid var(--rule-soft); padding-top: 12px; margin-top: 18px; }
+      .lede-sub { grid-column: 1 / span 12; }
+
+      .sec-num { grid-column: 1 / span 12; margin-bottom: 16px; }
+      .sec-title { grid-column: 1 / span 12; }
+      .sec-byline { grid-column: 1 / span 12; text-align: left; padding-bottom: 0; margin-top: 12px; }
+
+      .toc-name { grid-column: 2 / span 10; }
+      .toc-desc { grid-column: 2 / span 10; margin-top: 6px; }
+      .toc-page { display: none; }
+
+      .principle { grid-column: span 6; padding: 24px 12px !important; border-right: 1px solid var(--rule-soft) !important; }
+      .principle:nth-child(2n) { border-right: none !important; padding-right: 0 !important; }
+      .principle:nth-child(2n+1) { padding-left: 0 !important; }
+
+      .mech-marker { grid-column: 1 / span 12; }
+      .mech-marker strong { display: inline; font-size: 28px; margin-left: 8px; }
+      .mech-title { grid-column: 1 / span 12; margin: 12px 0; }
+      .mech-body { grid-column: 1 / span 12; }
+
+      .plate-left { grid-column: 1 / span 12; margin-bottom: 24px; }
+      .specimen { grid-column: 1 / span 12; }
+
+      .plate-img.a, .plate-img.f { grid-column: span 12; aspect-ratio: 16 / 9; }
+      .plate-img.b, .plate-img.c, .plate-img.d, .plate-img.e { grid-column: span 6; }
+
+      .spec-row .k { grid-column: 1 / span 5; }
+      .spec-row .v { grid-column: 6 / span 7; }
+      .spec-row .n { display: none; }
+
+      .end-quote { grid-column: 1 / span 12; }
+      .end-actions { grid-column: 1 / span 12; flex-direction: row; align-items: stretch; margin-top: 24px; }
+      .end-actions .btn { flex: 1; justify-content: center; }
+
+      .col-brand { grid-column: 1 / span 12; }
+      .col-links { grid-column: span 6; }
     }
 
-    /* ─── Small mobile tweaks ─── */
-    @media (max-width: 480px) {
-      .container { padding: 0 18px; }
-      .hero { padding-top: 48px; }
-      .visual-frame { padding: 10px; }
-      .browser-url { font-size: 11px; padding: 4px 10px; }
-      .search-result { padding: 12px; }
-      .sr-title { font-size: 14px; }
-      .preview-card { padding: 14px; width: calc(100% - 20px); }
-      .pc-title { font-size: 13px; }
-      .pc-list li { font-size: 12px; }
-      .btn { padding: 13px 20px; font-size: 14.5px; width: 100%; justify-content: center; }
-      .cta-row { flex-direction: column; }
-      .cta-row .btn { width: 100%; }
-      .badge { font-size: 12px; }
-      .trust-row { gap: 14px 22px; font-size: 12.5px; }
-      .feature { padding: 22px; }
-      .step { padding: 20px; gap: 16px; }
-      .step-num { width: 36px; height: 36px; font-size: 15px; }
+    @media (max-width: 560px) {
+      .grid { padding: 0 16px; }
+      .sec-pad { padding: 56px 0; }
+      .principle { grid-column: 1 / span 12 !important; border-right: none !important; padding: 24px 0 !important; }
+      .col-links { grid-column: span 12; }
+      .lede-actions { flex-direction: column; align-items: stretch; }
+      .lede-actions .btn { justify-content: center; }
+      .lede-actions .meta { margin-left: 0; text-align: center; }
+      .end-actions { flex-direction: column; }
+      .col-meta { font-size: 10px; }
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -822,339 +1065,533 @@
 </head>
 <body>
 
-  <div class="ambient" aria-hidden="true"></div>
-  <div class="grid-overlay" aria-hidden="true"></div>
-
-  <!-- ─── Navigation ─── -->
-  <nav class="nav">
-    <div class="container nav-inner">
-      <a href="#" class="logo">
-        <span class="logo-mark">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M5 12h14"/>
-            <path d="m12 5 7 7-7 7"/>
-          </svg>
-        </span>
-        Arcks
-      </a>
-
-      <div class="nav-links">
-        <a href="#features">Features</a>
-        <a href="#how">How it works</a>
-        <a href="#gallery">Examples</a>
-        <a href="https://github.com/therahul-yo/Arcks" target="_blank" rel="noopener">GitHub</a>
+  <!-- ─── Status / topline ─── -->
+  <div class="topline">
+    <div class="grid">
+      <div class="topline-left">
+        <span><span class="dot"></span>Live · v0.4.1</span>
       </div>
-
-      <a href="#install" class="nav-cta">
-        Install
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-      </a>
-
-      <button class="nav-menu" id="navMenu" aria-label="Open menu" aria-expanded="false">
-        <svg id="menuIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="4" y1="7" x2="20" y2="7"/>
-          <line x1="4" y1="12" x2="20" y2="12"/>
-          <line x1="4" y1="17" x2="20" y2="17"/>
-        </svg>
-      </button>
+      <div class="topline-mid">A reading layer for search · est. 2025</div>
+      <div class="topline-right">
+        <a href="#index"     class="nav-link">Index</a>
+        <a href="#mechanism" class="nav-link">Mechanism</a>
+        <a href="#plates"    class="nav-link">Plates</a>
+        <a href="https://github.com/therahul-yo/Arcks" target="_blank" rel="noopener" class="nav-link">Source ↗</a>
+        <button class="menu-btn" id="menuBtn" aria-label="Open menu" aria-expanded="false">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <g class="icon-open">
+              <line x1="4" y1="8"  x2="20" y2="8"/>
+              <line x1="4" y1="16" x2="20" y2="16"/>
+            </g>
+            <g class="icon-close">
+              <line x1="6" y1="6"  x2="18" y2="18"/>
+              <line x1="18" y1="6" x2="6"  y2="18"/>
+            </g>
+          </svg>
+        </button>
+      </div>
     </div>
-  </nav>
-
-  <div class="mobile-drawer" id="mobileDrawer">
-    <a href="#features">Features</a>
-    <a href="#how">How it works</a>
-    <a href="#gallery">Examples</a>
-    <a href="https://github.com/therahul-yo/Arcks" target="_blank" rel="noopener">GitHub</a>
-    <a href="#install" class="primary">Install Extension</a>
   </div>
 
-  <!-- ─── Hero ─── -->
-  <header class="hero">
-    <div class="container">
-      <div class="hero-grid">
-        <div class="hero-copy">
-          <span class="badge">
-            <span class="badge-pill">New</span>
-            AI previews for Google Search
-          </span>
+  <div class="drawer" id="drawer">
+    <a href="#index">Index</a>
+    <a href="#principles">Principles</a>
+    <a href="#mechanism">Mechanism</a>
+    <a href="#plates">Plates</a>
+    <a href="#specs">Specifications</a>
+    <a href="https://github.com/therahul-yo/Arcks" target="_blank" rel="noopener">Source ↗</a>
+    <a href="#install" class="primary">Install</a>
+  </div>
 
-          <h1 class="headline">
-            Preview before<br>
-            you <span class="gradient-text">click.</span>
-          </h1>
-
-          <p class="hero-sub">
-            Arcks shows an AI-generated preview card on hover — pulled by a Cloudflare Worker and summarized by Gemini in around 350ms. No more clicking into dead ends.
-          </p>
-
-          <div class="cta-row">
-            <a href="#install" class="btn btn-primary">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-              Add to Chrome
-            </a>
-            <a href="https://github.com/therahul-yo/Arcks" target="_blank" rel="noopener" class="btn btn-secondary">
-              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5a12 12 0 0 0-3.79 23.4c.6.11.82-.26.82-.58v-2.1c-3.34.73-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.09-.74.08-.73.08-.73 1.21.09 1.84 1.24 1.84 1.24 1.07 1.84 2.81 1.31 3.5 1 .11-.78.42-1.31.76-1.61-2.67-.31-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.13-.31-.54-1.53.11-3.19 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.29-1.55 3.3-1.23 3.3-1.23.65 1.66.24 2.88.12 3.19.77.84 1.24 1.91 1.24 3.22 0 4.61-2.8 5.61-5.48 5.92.43.37.82 1.1.82 2.22v3.29c0 .32.22.69.83.58A12 12 0 0 0 12 .5"/></svg>
-              View on GitHub
-            </a>
-          </div>
-
-          <div class="trust-row">
-            <span class="trust-item">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-              No history stored
-            </span>
-            <span class="trust-item">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-              Two-layer caching
-            </span>
-            <span class="trust-item">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-              MIT licensed
-            </span>
-          </div>
-        </div>
-
-        <div class="hero-visual reveal">
-          <div class="visual-frame">
-            <div class="browser-bar">
-              <div class="browser-dots"><span></span><span></span><span></span></div>
-              <div class="browser-url">google.com/search?q=linear+project+management</div>
-            </div>
-
-            <div class="search-result">
-              <div class="sr-url">notion.so › product</div>
-              <div class="sr-title">Notion — One workspace. Every team.</div>
-              <div class="sr-snippet">Write, plan, share. With AI at your side. Try Notion AI for free…</div>
-            </div>
-
-            <div class="search-result highlight">
-              <div class="sr-url">linear.app › features</div>
-              <div class="sr-title">Linear — The issue tracking tool for modern software teams</div>
-              <div class="sr-snippet">Linear is the project management tool used by thousands of engineering…</div>
-            </div>
-
-            <div class="search-result">
-              <div class="sr-url">asana.com › product</div>
-              <div class="sr-title">Asana · Manage your team's work, projects, & tasks online</div>
-              <div class="sr-snippet">Asana is a remote work software solution to keep your team connected…</div>
-            </div>
-
-            <div class="preview-card">
-              <div class="pc-head">
-                <div class="pc-favicon">L</div>
-                <div class="pc-host">linear.app</div>
-                <div class="pc-tag">348ms</div>
-              </div>
-              <div class="pc-title">Modern project management for fast-moving engineering teams</div>
-              <ul class="pc-list">
-                <li><span class="icon">⚡</span><span><strong>Speed</strong> — real-time sync, keyboard-first</span></li>
-                <li><span class="icon">🧩</span><span><strong>Built for</strong> startups and software teams</span></li>
-                <li><span class="icon">💵</span><span><strong>Pricing</strong> — free tier, paid from $8/user</span></li>
-              </ul>
-            </div>
-          </div>
-        </div>
+  <!-- ─── Masthead ─── -->
+  <header class="masthead">
+    <div class="grid">
+      <h1 class="mast-title">Arcks<span class="slash">/</span></h1>
+      <div class="mast-meta">
+        <span><strong>Issue №01</strong></span>
+        <hr>
+        <span>A reading layer for search</span>
+        <span>By Rahul</span>
+        <hr>
+        <span>Open source · MIT</span>
       </div>
     </div>
   </header>
 
-  <!-- ─── Features ─── -->
-  <section class="section" id="features">
-    <div class="container">
-      <div class="section-head reveal">
-        <span class="eyebrow">Features</span>
-        <h2 class="section-title">Built for fast, private browsing.</h2>
-        <p class="section-sub">Everything you need to skip dead links and find what you're actually looking for — without sacrificing speed or privacy.</p>
+  <!-- ─── Lede / hero ─── -->
+  <section class="lede">
+    <div class="grid">
+      <div class="lede-issue">
+        <span>01 — Lede</span>
+        <span>The case against the blind click</span>
       </div>
 
-      <div class="features-grid">
-        <div class="feature reveal">
-          <div class="feature-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-          </div>
-          <h3>Instant previews</h3>
-          <p>Hover triggers after 350ms — fast enough to feel instant, slow enough to never fire by accident.</p>
-        </div>
+      <h2 class="lede-head">
+        Read the page <em>before</em><br>
+        you open the <span class="underline">tab.</span>
+      </h2>
 
-        <div class="feature reveal">
-          <div class="feature-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v6m0 10v6"/><path d="M4.22 4.22l4.24 4.24m7.08 7.08l4.24 4.24"/><path d="M1 12h6m10 0h6"/><path d="M4.22 19.78l4.24-4.24m7.08-7.08l4.24-4.24"/></svg>
-          </div>
-          <h3>AI-powered</h3>
-          <p>Choose between Gemini 2.5 Flash or any OpenRouter model. Swap providers without touching the extension.</p>
-        </div>
+      <aside class="lede-aside">
+        <strong>Method</strong>
+        Hover any search result. A worker reads the page. An AI returns its shape. ~350ms.
+      </aside>
 
-        <div class="feature reveal">
-          <div class="feature-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>
-          </div>
-          <h3>Worker-fetched</h3>
-          <p>Pages are fetched by a Cloudflare Worker — no CORS limits, no client-side scraping, no fingerprinting.</p>
-        </div>
+      <p class="lede-sub">
+        Search is full of dead ends — pages that promise an answer and deliver an ad. <b>Arcks</b> intercepts the hover, fetches the target through a Cloudflare Worker, and renders a three-bullet summary in the time it takes you to decide. The web stays open. The friction goes away.
+      </p>
 
-        <div class="feature reveal">
-          <div class="feature-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v6c0 1.66 4.03 3 9 3s9-1.34 9-3V5"/><path d="M3 11v6c0 1.66 4.03 3 9 3s9-1.34 9-3v-6"/></svg>
-          </div>
-          <h3>Two-layer cache</h3>
-          <p>KV cache on the worker (30m) plus a local cache in the extension (10m). Most hovers cost zero API calls.</p>
-        </div>
-
-        <div class="feature reveal">
-          <div class="feature-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-          </div>
-          <h3>Privacy-first</h3>
-          <p>No browsing history stored anywhere. Summaries are generated ephemerally and never logged.</p>
-        </div>
-
-        <div class="feature reveal">
-          <div class="feature-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
-          </div>
-          <h3>One-tap share</h3>
-          <p>Every card has a native share button — uses the system share sheet, falls back to clipboard automatically.</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ─── How it works ─── -->
-  <section class="section" id="how">
-    <div class="container">
-      <div class="section-head reveal">
-        <span class="eyebrow">How it works</span>
-        <h2 class="section-title">From hover to preview in three steps.</h2>
-      </div>
-
-      <div class="steps">
-        <div class="step reveal">
-          <div class="step-num">1</div>
-          <div class="step-body">
-            <h3>Hover any Google result</h3>
-            <p>Arcks watches your search results and fires after a 350ms hover — debounced so it doesn't trigger on flyovers.</p>
-          </div>
-        </div>
-        <div class="step reveal">
-          <div class="step-num">2</div>
-          <div class="step-body">
-            <h3>Worker fetches and summarizes</h3>
-            <p>The Cloudflare Worker fetches the page, sends a stripped version to Gemini or OpenRouter, and streams the response back.</p>
-          </div>
-        </div>
-        <div class="step reveal">
-          <div class="step-num">3</div>
-          <div class="step-body">
-            <h3>Preview card renders instantly</h3>
-            <p>A structured card appears beside the link — headline, three bullets, and a share button. Cached for next time.</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ─── Gallery ─── -->
-  <section class="gallery" id="gallery">
-    <div class="container">
-      <div class="section-head reveal">
-        <span class="eyebrow">In the wild</span>
-        <h2 class="section-title">A peek at real preview cards.</h2>
-      </div>
-    </div>
-    <div class="scroller">
-      <div class="scroller-track">
-        <img src="preview.png"  alt="Arcks preview card" class="gallery-img" loading="lazy">
-        <img src="preview2.png" alt="Arcks preview card" class="gallery-img" loading="lazy">
-        <img src="card1.png"    alt="Goodreads card"     class="gallery-img" loading="lazy">
-        <img src="card2.png"    alt="W3Schools card"     class="gallery-img" loading="lazy">
-        <img src="card3.png"    alt="Wired card"         class="gallery-img" loading="lazy">
-        <img src="card4.png"    alt="Wikipedia card"     class="gallery-img" loading="lazy">
-        <img src="preview.png"  alt="" class="gallery-img" aria-hidden="true" loading="lazy">
-        <img src="preview2.png" alt="" class="gallery-img" aria-hidden="true" loading="lazy">
-        <img src="card1.png"    alt="" class="gallery-img" aria-hidden="true" loading="lazy">
-        <img src="card2.png"    alt="" class="gallery-img" aria-hidden="true" loading="lazy">
-        <img src="card3.png"    alt="" class="gallery-img" aria-hidden="true" loading="lazy">
-        <img src="card4.png"    alt="" class="gallery-img" aria-hidden="true" loading="lazy">
-      </div>
-    </div>
-  </section>
-
-  <!-- ─── CTA ─── -->
-  <section class="cta-section" id="install">
-    <div class="container">
-      <div class="cta-card reveal">
-        <h2>Stop clicking on blind links.</h2>
-        <p>Arcks is open source and coming to the Chrome Web Store soon. Star the repo to get notified.</p>
-        <div class="cta-row">
-          <a href="https://github.com/therahul-yo/Arcks" target="_blank" rel="noopener" class="btn btn-primary">
-            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5a12 12 0 0 0-3.79 23.4c.6.11.82-.26.82-.58v-2.1c-3.34.73-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.09-.74.08-.73.08-.73 1.21.09 1.84 1.24 1.84 1.24 1.07 1.84 2.81 1.31 3.5 1 .11-.78.42-1.31.76-1.61-2.67-.31-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.13-.31-.54-1.53.11-3.19 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.29-1.55 3.3-1.23 3.3-1.23.65 1.66.24 2.88.12 3.19.77.84 1.24 1.91 1.24 3.22 0 4.61-2.8 5.61-5.48 5.92.43.37.82 1.1.82 2.22v3.29c0 .32.22.69.83.58A12 12 0 0 0 12 .5"/></svg>
-            Star on GitHub
-          </a>
-          <a href="#" class="btn btn-secondary">
-            Notify me on launch
-          </a>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ─── Footer ─── -->
-  <footer>
-    <div class="container footer-inner">
-      <div>
-        <a href="#" class="logo">
-          <span class="logo-mark">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-          </span>
-          Arcks
+      <div class="lede-actions">
+        <a href="#install" class="btn solid">
+          Install for Chrome
+          <span class="arrow"></span>
         </a>
-        <div class="footer-meta" style="margin-top:10px;">© 2026 Rahul · MIT License</div>
+        <a href="https://github.com/therahul-yo/Arcks" target="_blank" rel="noopener" class="btn">
+          Read the source
+          <span class="arrow"></span>
+        </a>
+        <span class="meta">No telemetry · No account · MIT</span>
       </div>
-      <div class="footer-links">
-        <a href="#features">Features</a>
-        <a href="#how">How it works</a>
-        <a href="#gallery">Examples</a>
-        <a href="https://github.com/therahul-yo/Arcks" target="_blank" rel="noopener">GitHub</a>
+    </div>
+  </section>
+
+  <!-- ─── Ticker ─── -->
+  <div class="ticker" aria-hidden="true">
+    <div class="ticker-track">
+      <span>Peek before you click</span>
+      <span>Gemini 2.5 Flash + OpenRouter</span>
+      <span>~350ms median</span>
+      <span>Two-layer cache</span>
+      <span>Zero history retained</span>
+      <span>Open source · MIT</span>
+      <span>Manifest V3</span>
+      <span>Peek before you click</span>
+      <span>Gemini 2.5 Flash + OpenRouter</span>
+      <span>~350ms median</span>
+      <span>Two-layer cache</span>
+      <span>Zero history retained</span>
+      <span>Open source · MIT</span>
+      <span>Manifest V3</span>
+    </div>
+  </div>
+
+  <!-- ─── 01 — Index / TOC ─── -->
+  <section class="sec-pad" id="index">
+    <div class="grid">
+      <div class="sec-head">
+        <div class="sec-num">In this issue<strong>№01 · 05 sections</strong></div>
+        <h3 class="sec-title">An <em>index</em> of what's inside.</h3>
+        <div class="sec-byline">— Updated May 2026</div>
+      </div>
+
+      <div class="toc">
+        <a href="#principles" class="toc-row">
+          <span class="toc-num">№01</span>
+          <span class="toc-name">Principles</span>
+          <span class="toc-desc">Six rules the extension was designed around. Speed, privacy, restraint.</span>
+          <span class="toc-page">p.03</span>
+        </a>
+        <a href="#mechanism" class="toc-row">
+          <span class="toc-num">№02</span>
+          <span class="toc-name">Mechanism</span>
+          <span class="toc-desc">From hover to summary, in three deliberate steps and one worker.</span>
+          <span class="toc-page">p.07</span>
+        </a>
+        <a href="#specimen" class="toc-row">
+          <span class="toc-num">№03</span>
+          <span class="toc-name">Specimen</span>
+          <span class="toc-desc">An anatomy of a single preview card. Read like a typographic plate.</span>
+          <span class="toc-page">p.12</span>
+        </a>
+        <a href="#plates" class="toc-row">
+          <span class="toc-num">№04</span>
+          <span class="toc-name">Plates <em>in the wild</em></span>
+          <span class="toc-desc">Six samples pulled from Wikipedia, Wired, Goodreads, W3Schools.</span>
+          <span class="toc-page">p.16</span>
+        </a>
+        <a href="#specs" class="toc-row">
+          <span class="toc-num">№05</span>
+          <span class="toc-name">Specifications</span>
+          <span class="toc-desc">Stack, providers, runtime envelope, license and limits.</span>
+          <span class="toc-page">p.22</span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── 02 — Principles ─── -->
+  <section class="sec-pad" id="principles">
+    <div class="grid">
+      <div class="sec-head">
+        <div class="sec-num">Section №01<strong>Principles</strong></div>
+        <h3 class="sec-title">Six rules the <em>extension</em> was designed around.</h3>
+        <div class="sec-byline">— Speed · Privacy · Restraint</div>
+      </div>
+
+      <div class="principles">
+        <article class="principle">
+          <div class="p-num"><span>P / 01</span><em>Latency</em></div>
+          <h4 class="p-title">~350ms or it didn't <em>happen.</em></h4>
+          <p class="p-body">A hover that returns slower than a click isn't a preview, it's a delay. The worker streams, the extension paints incrementally, and the median round trip stays under <b>350ms</b>.</p>
+        </article>
+
+        <article class="principle">
+          <div class="p-num"><span>P / 02</span><em>Memory</em></div>
+          <h4 class="p-title">Two caches, no history.</h4>
+          <p class="p-body">A 30-minute KV cache on the worker and a 10-minute in-memory cache in the extension. Identical hovers cost <b>zero</b>. Nothing about your browsing is persisted past these windows.</p>
+        </article>
+
+        <article class="principle">
+          <div class="p-num"><span>P / 03</span><em>Privacy</em></div>
+          <h4 class="p-title">No account. <em>No log.</em></h4>
+          <p class="p-body">Arcks does not require sign-in, does not retain your queries, and does not log URL→summary pairs. The worker fetches anonymously and forgets.</p>
+        </article>
+
+        <article class="principle">
+          <div class="p-num"><span>P / 04</span><em>Provider</em></div>
+          <h4 class="p-title">Bring your own <em>model.</em></h4>
+          <p class="p-body">Default is <b>Gemini 2.5 Flash</b>. Swap to any <b>OpenRouter</b> model in the options. The summary prompt is portable; the cost stays yours.</p>
+        </article>
+
+        <article class="principle">
+          <div class="p-num"><span>P / 05</span><em>Surface</em></div>
+          <h4 class="p-title">Three bullets is the <em>answer.</em></h4>
+          <p class="p-body">Every card returns a headline plus three structured bullets. Not a paragraph, not a teaser. The card is the answer, not the bait.</p>
+        </article>
+
+        <article class="principle">
+          <div class="p-num"><span>P / 06</span><em>Source</em></div>
+          <h4 class="p-title">Open, hackable, <em>yours.</em></h4>
+          <p class="p-body">MIT-licensed extension and worker. Fork the repo, point it at your own Cloudflare account, change the model. The defaults are good. The defaults are also optional.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── 03 — Mechanism ─── -->
+  <section class="sec-pad" id="mechanism">
+    <div class="grid">
+      <div class="sec-head">
+        <div class="sec-num">Section №02<strong>Mechanism</strong></div>
+        <h3 class="sec-title">From hover to summary, in <em>three</em> deliberate steps.</h3>
+        <div class="sec-byline">— Architecture, in plain English</div>
+      </div>
+
+      <div class="mech">
+        <div class="mech-step">
+          <div class="mech-marker">Step <strong>01</strong></div>
+          <h4 class="mech-title">A 350ms hover commits — anything faster is a flyover.</h4>
+          <p class="mech-body">A content script watches Google's result list and debounces every hover. When the timer fires, Arcks captures the destination URL and dispatches a single message to the background service worker. Nothing leaves the browser yet.</p>
+        </div>
+
+        <div class="mech-step">
+          <div class="mech-marker">Step <strong>02</strong></div>
+          <h4 class="mech-title">A Cloudflare Worker fetches, strips, and summarizes.</h4>
+          <p class="mech-body">The worker pulls the target page server-side, dodging CORS and client-side scraping. The body is stripped to readable text and sent to <code>gemini-2.5-flash</code> with a structured-output schema. KV checks happen before the model is even pinged.</p>
+        </div>
+
+        <div class="mech-step">
+          <div class="mech-marker">Step <strong>03</strong></div>
+          <h4 class="mech-title">A card paints next to the link, three bullets deep.</h4>
+          <p class="mech-body">The response — headline, three bullets, source host — is rendered inline as a positioned card. The extension also stamps a share button, a latency badge, and a fallback for paywalled or empty pages. The next identical hover costs zero.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── 04 — Specimen ─── -->
+  <section class="sec-pad" id="specimen">
+    <div class="grid">
+      <div class="sec-head">
+        <div class="sec-num">Section №03<strong>Specimen</strong></div>
+        <h3 class="sec-title">The anatomy of a single <em>preview.</em></h3>
+        <div class="sec-byline">— Read like a typographic plate</div>
+      </div>
+
+      <div class="plate">
+        <div class="plate-left">
+          <span class="label">Subject</span>
+          <span class="value">Hover preview, card variant</span>
+
+          <span class="label">Generated by</span>
+          <span class="value">gemini-2.5-flash</span>
+
+          <span class="label">Round-trip</span>
+          <span class="value">348 ms · cold start</span>
+
+          <span class="label">Cache state</span>
+          <span class="value">KV miss → write</span>
+
+          <span class="label">Schema</span>
+          <span class="value">headline + bullets[3]</span>
+
+          <span class="label">Pulled from</span>
+          <span class="value">linear.app/features</span>
+        </div>
+
+        <article class="specimen">
+          <div class="spec-meta">
+            <span>SPECIMEN №01</span>
+            <span class="ms">348 ms</span>
+          </div>
+          <div class="spec-host">linear.app › features</div>
+          <h5 class="spec-title">Modern project management for fast-moving engineering teams.</h5>
+          <ul class="spec-list">
+            <li><span class="marker">01</span><span><b>Built for speed</b> — real-time sync, keyboard-first navigation, sub-100ms transitions across boards and views.</span></li>
+            <li><span class="marker">02</span><span><b>Aimed at</b> early-stage startups and product engineering teams shipping continuously.</span></li>
+            <li><span class="marker">03</span><span><b>Free</b> for small teams, paid plans from $8 / user / month with unlimited issues.</span></li>
+          </ul>
+          <div class="spec-foot">
+            <span>Cached for 30 min · KV</span>
+            <span>↗ Share</span>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── 05 — Plates / gallery ─── -->
+  <section class="sec-pad" id="plates">
+    <div class="grid">
+      <div class="sec-head">
+        <div class="sec-num">Section №04<strong>Plates in the wild</strong></div>
+        <h3 class="sec-title">Six samples pulled from <em>real</em> hovers.</h3>
+        <div class="sec-byline">— Wikipedia, Wired, Goodreads, W3Schools</div>
+      </div>
+
+      <div class="plates">
+        <figure class="plate-img a">
+          <div class="frame">
+            <span class="stamp"><em>№01</em>Google Search</span>
+            <img src="preview2.png" alt="Preview card on Google Search" loading="lazy">
+          </div>
+          <figcaption class="caption">
+            <span class="src">Plate 01 — Search results, in context</span>
+            <span class="num">P.16</span>
+          </figcaption>
+        </figure>
+
+        <figure class="plate-img b">
+          <div class="frame">
+            <span class="stamp"><em>№02</em>Hover state</span>
+            <img src="preview.png" alt="Preview card variant" loading="lazy">
+          </div>
+          <figcaption class="caption">
+            <span class="src">Plate 02 — Card variant</span>
+            <span class="num">P.17</span>
+          </figcaption>
+        </figure>
+
+        <figure class="plate-img c">
+          <div class="frame">
+            <span class="stamp"><em>№03</em>goodreads.com</span>
+            <img src="card1.png" alt="Goodreads summary card" loading="lazy">
+          </div>
+          <figcaption class="caption">
+            <span class="src">Plate 03 — Goodreads</span>
+            <span class="num">P.18</span>
+          </figcaption>
+        </figure>
+
+        <figure class="plate-img d">
+          <div class="frame">
+            <span class="stamp"><em>№04</em>w3schools.com</span>
+            <img src="card2.png" alt="W3Schools summary card" loading="lazy">
+          </div>
+          <figcaption class="caption">
+            <span class="src">Plate 04 — W3Schools</span>
+            <span class="num">P.19</span>
+          </figcaption>
+        </figure>
+
+        <figure class="plate-img e">
+          <div class="frame">
+            <span class="stamp"><em>№05</em>wired.com</span>
+            <img src="card3.png" alt="Wired summary card" loading="lazy">
+          </div>
+          <figcaption class="caption">
+            <span class="src">Plate 05 — Wired</span>
+            <span class="num">P.20</span>
+          </figcaption>
+        </figure>
+
+        <figure class="plate-img f">
+          <div class="frame">
+            <span class="stamp"><em>№06</em>wikipedia.org</span>
+            <img src="card4.png" alt="Wikipedia summary card" loading="lazy">
+          </div>
+          <figcaption class="caption">
+            <span class="src">Plate 06 — Wikipedia</span>
+            <span class="num">P.21</span>
+          </figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── 06 — Specifications ─── -->
+  <section class="sec-pad" id="specs">
+    <div class="grid">
+      <div class="sec-head">
+        <div class="sec-num">Section №05<strong>Specifications</strong></div>
+        <h3 class="sec-title">The <em>technical</em> envelope.</h3>
+        <div class="sec-byline">— Stack, runtime, license</div>
+      </div>
+
+      <div class="specs">
+        <div class="spec-row">
+          <span class="k">Extension</span>
+          <span class="v">Chrome / Chromium · Manifest V3</span>
+          <span class="n">001 / 010</span>
+        </div>
+        <div class="spec-row">
+          <span class="k">Backend</span>
+          <span class="v">Cloudflare Workers + KV namespace</span>
+          <span class="n">002 / 010</span>
+        </div>
+        <div class="spec-row">
+          <span class="k">Default model</span>
+          <span class="v"><code>gemini-2.5-flash</code></span>
+          <span class="n">003 / 010</span>
+        </div>
+        <div class="spec-row">
+          <span class="k">Alternate model</span>
+          <span class="v">Any <code>openrouter.ai</code> route</span>
+          <span class="n">004 / 010</span>
+        </div>
+        <div class="spec-row">
+          <span class="k">Median latency</span>
+          <span class="v">~350 ms cold · &lt;40 ms warm</span>
+          <span class="n">005 / 010</span>
+        </div>
+        <div class="spec-row">
+          <span class="k">Worker cache</span>
+          <span class="v">KV · 30 minutes per URL</span>
+          <span class="n">006 / 010</span>
+        </div>
+        <div class="spec-row">
+          <span class="k">Client cache</span>
+          <span class="v">In-memory · 10 minutes</span>
+          <span class="n">007 / 010</span>
+        </div>
+        <div class="spec-row">
+          <span class="k">Hover threshold</span>
+          <span class="v">350 ms debounced</span>
+          <span class="n">008 / 010</span>
+        </div>
+        <div class="spec-row">
+          <span class="k">Telemetry</span>
+          <span class="v">None. Anonymous origin enforced.</span>
+          <span class="n">009 / 010</span>
+        </div>
+        <div class="spec-row">
+          <span class="k">License</span>
+          <span class="v">MIT · © 2025 Rahul</span>
+          <span class="n">010 / 010</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── End / install ─── -->
+  <section class="sec-pad" id="install">
+    <div class="grid">
+      <div class="end">
+        <p class="end-quote">
+          Stop opening tabs you were never going to <span class="accent">read.</span>
+        </p>
+        <div class="end-actions">
+          <a href="https://github.com/therahul-yo/Arcks" target="_blank" rel="noopener" class="btn solid">
+            Star on GitHub
+            <span class="arrow"></span>
+          </a>
+          <a href="https://github.com/therahul-yo/Arcks#-setup--installation" target="_blank" rel="noopener" class="btn">
+            Self-host the worker
+            <span class="arrow"></span>
+          </a>
+        </div>
+
+        <div class="end-byline">
+          <span>— Coming to the Chrome Web Store · ETA Q3 2026</span>
+          <span>Feedback ↗ github.com/therahul-yo/Arcks/issues</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── Colophon ─── -->
+  <footer class="colophon">
+    <div class="grid">
+      <div class="col-brand">
+        <div class="mark">Arcks<span>/</span></div>
+        <p>A reading layer for search. Built in the open by Rahul. Set in <em>Inter</em>, <em>JetBrains&nbsp;Mono</em>, and <em>Instrument&nbsp;Serif</em>.</p>
+      </div>
+      <div class="col-links">
+        <h4>Read</h4>
+        <a href="#index">Index</a>
+        <a href="#principles">Principles</a>
+        <a href="#mechanism">Mechanism</a>
+        <a href="#specimen">Specimen</a>
+      </div>
+      <div class="col-links">
+        <h4>Build</h4>
+        <a href="https://github.com/therahul-yo/Arcks" target="_blank" rel="noopener">Source ↗</a>
+        <a href="https://github.com/therahul-yo/Arcks#-setup--installation" target="_blank" rel="noopener">Self-host ↗</a>
+        <a href="https://github.com/therahul-yo/Arcks/issues" target="_blank" rel="noopener">Issues ↗</a>
+        <a href="https://github.com/therahul-yo/Arcks/blob/main/LICENSE" target="_blank" rel="noopener">License ↗</a>
+      </div>
+      <div class="col-links">
+        <h4>Elsewhere</h4>
+        <a href="https://makersuite.google.com/app/apikey" target="_blank" rel="noopener">Gemini ↗</a>
+        <a href="https://openrouter.ai/" target="_blank" rel="noopener">OpenRouter ↗</a>
+        <a href="https://workers.cloudflare.com/" target="_blank" rel="noopener">Cloudflare ↗</a>
+      </div>
+
+      <div class="col-meta">
+        <span>© 2026 Rahul · MIT License</span>
+        <span>Issue №01 · A reading layer for search</span>
+        <span>Built without analytics</span>
       </div>
     </div>
   </footer>
 
   <script>
-    // ─── Mobile menu ───
-    const menuBtn = document.getElementById('navMenu');
-    const drawer = document.getElementById('mobileDrawer');
-    const menuIcon = document.getElementById('menuIcon');
+    const menuBtn  = document.getElementById('menuBtn');
+    const drawer   = document.getElementById('drawer');
 
-    const openIcon = '<line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/>';
-    const closeIcon = '<line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/>';
-
-    function toggleMenu(force) {
-      const willOpen = typeof force === 'boolean' ? force : !drawer.classList.contains('open');
-      drawer.classList.toggle('open', willOpen);
-      menuBtn.setAttribute('aria-expanded', String(willOpen));
-      menuIcon.innerHTML = willOpen ? closeIcon : openIcon;
-      document.body.style.overflow = willOpen ? 'hidden' : '';
+    function toggle(force) {
+      const open = typeof force === 'boolean' ? force : !drawer.classList.contains('open');
+      drawer.classList.toggle('open', open);
+      menuBtn.setAttribute('aria-expanded', String(open));
+      menuBtn.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+      document.body.style.overflow = open ? 'hidden' : '';
     }
-
-    menuBtn.addEventListener('click', () => toggleMenu());
-    drawer.querySelectorAll('a').forEach(a => a.addEventListener('click', () => toggleMenu(false)));
-
-    // Close drawer on resize to desktop
+    menuBtn.addEventListener('click', () => toggle());
+    drawer.querySelectorAll('a').forEach(a => a.addEventListener('click', () => toggle(false)));
     window.addEventListener('resize', () => {
-      if (window.innerWidth >= 1024 && drawer.classList.contains('open')) toggleMenu(false);
+      if (window.innerWidth >= 1024 && drawer.classList.contains('open')) toggle(false);
     });
 
-    // ─── Reveal on scroll ───
-    const reveals = document.querySelectorAll('.reveal');
-    const io = new IntersectionObserver(entries => {
-      entries.forEach(entry => {
-        if (entry.isIntersecting) {
-          entry.target.classList.add('visible');
-          io.unobserve(entry.target);
-        }
-      });
-    }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
-    reveals.forEach(el => io.observe(el));
+    const midEl = document.querySelector('.topline-mid');
+    const sections = Array.from(document.querySelectorAll('section[id]'));
+    const labels = {
+      index:      '№01 — Index',
+      principles: '№02 — Principles',
+      mechanism:  '№03 — Mechanism',
+      specimen:   '№04 — Specimen',
+      plates:     '№05 — Plates',
+      specs:      '№06 — Specifications',
+      install:    '№07 — Install'
+    };
+    if (midEl) {
+      const io = new IntersectionObserver(entries => {
+        entries.forEach(e => {
+          if (e.isIntersecting && labels[e.target.id]) {
+            midEl.textContent = labels[e.target.id];
+          }
+        });
+      }, { threshold: 0.35, rootMargin: '-30% 0px -50% 0px' });
+      sections.forEach(s => io.observe(s));
+    }
   </script>
 </body>
 </html>

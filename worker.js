@@ -6,7 +6,7 @@
 
 // Extension IDs allowed to call this worker
 const ALLOWED_ORIGINS = [
-  "chrome-extension://fnjfkaalieomllbcjkbahknaamhecojg"
+  "chrome-extension://nchcfijbpgnhjelnnoacmjmobcpeflid"
 ];
 
 // KV cache TTL
@@ -29,8 +29,13 @@ const rateLimitMap = new Map();
 // Available AI providers
 const PROVIDERS = {
   gemini: "gemini",
-  openrouter: "openrouter"
+  openrouter: "openrouter",
+  nvidia: "nvidia"
 };
+
+const DEFAULT_OPENROUTER_MODEL = "google/gemini-2.5-flash";
+const DEFAULT_NVIDIA_MODEL = "nvidia/llama-3.3-nemotron-super-49b-v1.5";
+const MAX_SUMMARY_TOKENS = 512;
 
 export default {
   async fetch(request, env, ctx) {
@@ -77,7 +82,7 @@ export default {
       }
 
       const data = JSON.parse(body);
-      const { url, provider: requestedProvider } = data;
+      const { url, provider: requestedProvider, model: requestedModel, pageHint } = data;
 
       if (!url) {
         return new Response("Missing URL", {
@@ -102,7 +107,8 @@ export default {
         provider = env.DEFAULT_PROVIDER;
       }
 
-      const summary = await getSummary(env, validatedUrl, provider);
+      const model = resolveModel(provider, requestedModel);
+      const summary = await getSummary(env, validatedUrl, provider, pageHint, model);
 
       return new Response(JSON.stringify(summary), {
         status: 200,
@@ -147,9 +153,9 @@ function checkRateLimit(ip) {
 
 // ---- Main Summary Function ----
 
-async function getSummary(env, url, provider) {
+async function getSummary(env, url, provider, pageHint = "", model = DEFAULT_OPENROUTER_MODEL) {
   const kv = env.ARCKS_KV;
-  const cacheKey = `summary:${CACHE_VERSION}:${provider}:${url}`;
+  const cacheKey = `summary:${CACHE_VERSION}:${provider}:${model}:${url}`;
 
   // Check KV cache
   if (kv) {
@@ -164,12 +170,17 @@ async function getSummary(env, url, provider) {
   }
 
   // Fetch page content (server-side)
-  const pageContent = await fetchPageContent(url);
+  let pageContent = await fetchPageContent(url);
+  if (isBlockedOrLowSignalContent(pageContent) && pageHint) {
+    pageContent = `Search result context:\n${String(pageHint).slice(0, 1200)}`;
+  }
 
   // Generate summary using configured provider
   let result;
   if (provider === PROVIDERS.openrouter) {
-    result = await getSummaryFromOpenRouter(env, url, pageContent);
+    result = await getSummaryFromOpenRouter(env, url, pageContent, model);
+  } else if (provider === PROVIDERS.nvidia) {
+    result = await getSummaryFromNvidia(env, url, pageContent, model);
   } else {
     result = await getSummaryFromGemini(env, url, pageContent);
   }
@@ -205,7 +216,7 @@ async function getSummaryFromGemini(env, url, pageContent) {
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: {
           temperature: 0.3,
-          maxOutputTokens: 1024,
+          maxOutputTokens: MAX_SUMMARY_TOKENS,
           responseMimeType: "application/json"
         }
       })
@@ -234,7 +245,7 @@ async function getSummaryFromGemini(env, url, pageContent) {
 
 // ---- OpenRouter Provider ----
 
-async function getSummaryFromOpenRouter(env, url, pageContent) {
+async function getSummaryFromOpenRouter(env, url, pageContent, model = DEFAULT_OPENROUTER_MODEL) {
   const apiKey = env.OPENROUTER_API_KEY;
   if (!apiKey) {
     throw new Error("OPENROUTER_API_KEY not configured");
@@ -251,7 +262,7 @@ async function getSummaryFromOpenRouter(env, url, pageContent) {
       "X-Title": "Arcks"
     },
     body: JSON.stringify({
-      model: "google/gemini-2.5-flash-preview-05-20",
+      model,
       messages: [
         {
           role: "system",
@@ -263,7 +274,7 @@ async function getSummaryFromOpenRouter(env, url, pageContent) {
         }
       ],
       temperature: 0.3,
-      max_tokens: 1024,
+      max_tokens: MAX_SUMMARY_TOKENS,
       response_format: { type: "json_object" }
     })
   });
@@ -271,7 +282,53 @@ async function getSummaryFromOpenRouter(env, url, pageContent) {
   if (!response.ok) {
     const errorText = await response.text();
     console.error(`OpenRouter API error: ${response.status} - ${errorText}`);
-    throw new Error(`AI provider error (${response.status})`);
+    throw new Error(`OpenRouter error (${response.status}): ${summarizeProviderError(errorText)}`);
+  }
+
+  const responseData = await response.json();
+  const text = responseData.choices?.[0]?.message?.content || "";
+
+  return parseSummaryResponse(text, url);
+}
+
+// ---- NVIDIA NIM Provider ----
+
+async function getSummaryFromNvidia(env, url, pageContent, model = DEFAULT_NVIDIA_MODEL) {
+  const apiKey = env.NIM_API_KEY || env.NVIDIA_API_KEY;
+  if (!apiKey) {
+    throw new Error("NIM_API_KEY not configured");
+  }
+
+  const prompt = buildSummarizationPrompt(url, pageContent);
+
+  const response = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${apiKey}`
+    },
+    body: JSON.stringify({
+      model,
+      messages: [
+        {
+          role: "system",
+          content: "You create compact browser hover previews. Always respond with JSON in this exact shape: {\"title\":\"Page Title\",\"headline\":\"Short page preview headline.\",\"summary\":\"One sentence fallback summary.\",\"bullets\":[\"Label: useful insight\",\"Label: useful insight\",\"Label: useful insight\"]}"
+        },
+        {
+          role: "user",
+          content: prompt
+        }
+      ],
+      temperature: 0.3,
+      max_tokens: MAX_SUMMARY_TOKENS,
+      response_format: { type: "json_object" }
+    })
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error(`NVIDIA NIM API error: ${response.status} - ${errorText}`);
+    throw new Error(`NVIDIA NIM error (${response.status}): ${summarizeProviderError(errorText)}`);
   }
 
   const responseData = await response.json();
@@ -299,6 +356,30 @@ ${pageContent || "(No content available)"}
 
 Respond with a JSON object in this exact format:
 {"title": "Page Title", "headline": "Short page preview headline.", "summary": "One sentence fallback summary.", "bullets": ["Label: useful insight", "Label: useful insight", "Label: useful insight"]}`;
+}
+
+function resolveModel(provider, requestedModel) {
+  const defaultModel = provider === PROVIDERS.nvidia ? DEFAULT_NVIDIA_MODEL : DEFAULT_OPENROUTER_MODEL;
+  if (provider !== PROVIDERS.openrouter && provider !== PROVIDERS.nvidia) return defaultModel;
+  if (typeof requestedModel !== "string") return defaultModel;
+
+  const model = requestedModel.trim();
+  return /^[a-z0-9._-]+\/[a-z0-9._:-]+$/i.test(model) ? model : defaultModel;
+}
+
+function isBlockedOrLowSignalContent(text) {
+  const normalized = String(text || "").toLowerCase();
+  if (normalized.length < 160) return true;
+  return /verification pending|verification page|verify you are human|login to continue|enable javascript|blocked by|access denied|unusual traffic/.test(normalized);
+}
+
+function summarizeProviderError(errorText) {
+  try {
+    const parsed = JSON.parse(errorText);
+    return parsed.error?.message || parsed.message || errorText.slice(0, 180);
+  } catch {
+    return String(errorText || "Unknown provider error").slice(0, 180);
+  }
 }
 
 function parseSummaryResponse(text, url) {

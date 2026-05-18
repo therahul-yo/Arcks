@@ -5,60 +5,185 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Arcks Settings</title>
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
+    :root {
+      color-scheme: dark;
+      --bg: #0b0c0f;
+      --panel: #111319;
+      --panel-2: #161922;
+      --line: rgba(255, 255, 255, 0.09);
+      --text: rgba(255, 255, 255, 0.94);
+      --muted: rgba(255, 255, 255, 0.58);
+      --soft: rgba(255, 255, 255, 0.36);
+      --accent: #8fb7ff;
+      --accent-strong: #b5ccff;
+      --ok: #42d392;
+      --danger: #ff7a7a;
     }
 
+    * { box-sizing: border-box; }
+
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #121212;
-      color: #ffffff;
-      padding: 24px;
-      min-width: 400px;
+      margin: 0;
+      min-width: 520px;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      letter-spacing: 0;
+    }
+
+    .page {
+      width: min(860px, 100%);
+      margin: 0 auto;
+      padding: 28px;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      padding-bottom: 22px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 13px;
+      min-width: 0;
+    }
+
+    .mark {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      background: #050609;
+      border: 1px solid var(--line);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      object-fit: cover;
     }
 
     h1 {
-      font-size: 20px;
-      font-weight: 600;
-      margin-bottom: 24px;
-      color: #ffffff;
+      margin: 0;
+      font-size: 22px;
+      line-height: 1.1;
+      font-weight: 760;
     }
 
-    .setting-group {
-      margin-bottom: 20px;
-    }
-
-    label {
-      display: block;
+    .subtitle {
+      margin: 5px 0 0;
+      color: var(--muted);
       font-size: 13px;
-      color: rgba(255, 255, 255, 0.7);
-      margin-bottom: 8px;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 30px;
+      padding: 6px 10px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--muted);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--danger);
+    }
+
+    .status-pill.ready .status-dot { background: var(--ok); }
+
+    main {
+      display: grid;
+      gap: 16px;
+      margin-top: 20px;
+    }
+
+    section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 18px 60px rgba(0, 0, 0, 0.24);
+    }
+
+    .section-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    h2 {
+      margin: 0;
+      font-size: 13px;
+      font-weight: 760;
+      text-transform: uppercase;
+      color: var(--soft);
+    }
+
+    .section-note {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      text-align: right;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr minmax(210px, 320px);
+      gap: 22px;
+      align-items: center;
+      padding: 18px;
+    }
+
+    .row + .row { border-top: 1px solid var(--line); }
+
+    .label {
+      display: block;
+      margin: 0 0 5px;
+      font-size: 14px;
+      font-weight: 690;
+      color: var(--text);
+    }
+
+    .hint {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
     }
 
     input[type="text"],
     input[type="number"],
     select {
       width: 100%;
-      padding: 10px 12px;
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 8px;
-      color: #ffffff;
-      font-size: 14px;
+      min-height: 38px;
+      padding: 9px 11px;
+      color: var(--text);
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      font: inherit;
+      font-size: 13px;
       outline: none;
-      transition: border-color 0.2s;
+      transition: border-color 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
     }
 
-    input[type="text"]:focus,
-    input[type="number"]:focus,
+    input:focus,
     select:focus {
-      border-color: rgba(255, 255, 255, 0.3);
-    }
-
-    input[type="text"]::placeholder {
-      color: rgba(255, 255, 255, 0.3);
+      border-color: rgba(143, 183, 255, 0.58);
+      box-shadow: 0 0 0 3px rgba(143, 183, 255, 0.12);
+      background: #191d27;
     }
 
     select {
@@ -68,181 +193,248 @@
     }
 
     select option {
-      background: #1a1a1a;
-      color: #ffffff;
+      background: #151821;
+      color: #fff;
     }
 
-    .select-wrapper {
-      position: relative;
-    }
+    .select-wrap { position: relative; }
 
-    .select-wrapper::after {
-      content: "▼";
+    .select-wrap::after {
+      content: "";
       position: absolute;
       right: 12px;
       top: 50%;
-      transform: translateY(-50%);
-      color: rgba(255, 255, 255, 0.4);
-      font-size: 10px;
+      width: 8px;
+      height: 8px;
+      border-right: 2px solid var(--soft);
+      border-bottom: 2px solid var(--soft);
+      transform: translateY(-65%) rotate(45deg);
       pointer-events: none;
     }
 
-    .toggle-group {
+    .switch-line {
       display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 12px;
-      background: rgba(255, 255, 255, 0.05);
-      border-radius: 8px;
-      margin-bottom: 16px;
-    }
-
-    .toggle-label {
-      font-size: 14px;
-      color: #ffffff;
+      justify-content: flex-end;
     }
 
     .toggle {
       position: relative;
-      width: 44px;
-      height: 24px;
+      display: inline-flex;
+      width: 48px;
+      height: 28px;
     }
 
     .toggle input {
+      position: absolute;
       opacity: 0;
-      width: 0;
-      height: 0;
+      inset: 0;
     }
 
     .toggle-slider {
       position: absolute;
+      inset: 0;
       cursor: pointer;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(255, 255, 255, 0.2);
-      border-radius: 24px;
-      transition: 0.3s;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.16);
+      border: 1px solid var(--line);
+      transition: background 0.18s ease, border-color 0.18s ease;
     }
 
-    .toggle-slider:before {
-      position: absolute;
+    .toggle-slider::before {
       content: "";
-      height: 18px;
-      width: 18px;
-      left: 3px;
-      bottom: 3px;
-      background: white;
+      position: absolute;
+      width: 22px;
+      height: 22px;
+      left: 2px;
+      top: 2px;
       border-radius: 50%;
-      transition: 0.3s;
+      background: #fff;
+      transition: transform 0.18s cubic-bezier(0.2, 0, 0, 1);
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.38);
     }
 
     .toggle input:checked + .toggle-slider {
-      background: #6366f1;
+      background: #6f9eff;
+      border-color: rgba(255, 255, 255, 0.18);
     }
 
-    .toggle input:checked + .toggle-slider:before {
+    .toggle input:checked + .toggle-slider::before {
       transform: translateX(20px);
     }
 
+    .actions {
+      position: sticky;
+      bottom: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      margin-top: 18px;
+      padding: 14px 0 0;
+      background: linear-gradient(180deg, rgba(11, 12, 15, 0), var(--bg) 35%);
+    }
+
+    .button-row {
+      display: flex;
+      gap: 10px;
+    }
+
     button {
-      width: 100%;
-      padding: 12px;
-      background: #6366f1;
-      border: none;
-      border-radius: 8px;
-      color: #ffffff;
-      font-size: 14px;
-      font-weight: 500;
+      min-height: 38px;
+      padding: 9px 14px;
+      border-radius: 9px;
+      border: 1px solid var(--line);
+      color: var(--text);
+      background: var(--panel-2);
+      font: inherit;
+      font-size: 13px;
+      font-weight: 700;
       cursor: pointer;
-      transition: background 0.2s;
+      transition: transform 0.16s ease, background 0.16s ease, border-color 0.16s ease;
     }
 
     button:hover {
-      background: #5558e8;
+      transform: translateY(-1px);
+      border-color: rgba(255, 255, 255, 0.18);
+      background: #1b202a;
+    }
+
+    .primary {
+      background: var(--accent);
+      color: #08101f;
+      border-color: transparent;
+    }
+
+    .primary:hover {
+      background: var(--accent-strong);
     }
 
     .status {
-      margin-top: 12px;
-      padding: 10px;
-      border-radius: 8px;
-      font-size: 13px;
-      text-align: center;
+      min-height: 34px;
+      padding: 9px 12px;
+      border-radius: 9px;
       opacity: 0;
-      transition: opacity 0.2s;
+      color: var(--muted);
+      font-size: 13px;
+      transition: opacity 0.18s ease;
     }
 
-    .status.visible {
-      opacity: 1;
-    }
+    .status.visible { opacity: 1; }
+    .status.success { color: var(--ok); background: rgba(66, 211, 146, 0.1); }
+    .status.error { color: var(--danger); background: rgba(255, 122, 122, 0.1); }
 
-    .status.success {
-      background: rgba(34, 197, 94, 0.2);
-      color: #22c55e;
-    }
-
-    .status.error {
-      background: rgba(239, 68, 68, 0.2);
-      color: #ef4444;
-    }
-
-    .hint {
-      font-size: 11px;
-      color: rgba(255, 255, 255, 0.4);
-      margin-top: 6px;
-    }
-
-    .section-label {
-      font-size: 11px;
-      font-weight: 600;
-      color: rgba(255, 255, 255, 0.4);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-bottom: 12px;
-      margin-top: 4px;
+    @media (max-width: 640px) {
+      body { min-width: 360px; }
+      .page { padding: 18px; }
+      header { align-items: flex-start; flex-direction: column; }
+      .row { grid-template-columns: 1fr; gap: 12px; }
+      .section-note { display: none; }
+      .actions { align-items: stretch; flex-direction: column; }
+      .button-row { justify-content: flex-end; }
     }
   </style>
 </head>
 <body>
-  <h1>⚡ Arcks Settings</h1>
+  <div class="page">
+    <header>
+      <div class="brand">
+        <img class="mark" src="icons/icon48.png" alt="Arcks">
+        <div>
+          <h1>Arcks Settings</h1>
+          <p class="subtitle">Control hover previews, AI provider, and worker connection.</p>
+        </div>
+      </div>
+      <div class="status-pill" id="connectionStatus">
+        <span class="status-dot"></span>
+        <span id="connectionText">Worker not set</span>
+      </div>
+    </header>
 
-  <div class="toggle-group">
-    <span class="toggle-label">Enable Link Previews</span>
-    <label class="toggle">
-      <input type="checkbox" id="enabled" checked>
-      <span class="toggle-slider"></span>
-    </label>
-  </div>
+    <main>
+      <section>
+        <div class="section-head">
+          <h2>Preview Behavior</h2>
+          <p class="section-note">Changes apply after saving</p>
+        </div>
 
-  <div class="section-label">AI Provider</div>
-  <div class="setting-group">
-    <label for="provider">Provider</label>
-    <div class="select-wrapper">
-      <select id="provider">
-        <option value="gemini">Google Gemini 2.5 Flash</option>
-        <option value="openrouter">OpenRouter (Gemini 2.5 Flash)</option>
-      </select>
+        <div class="row">
+          <div>
+            <label class="label" for="enabled">Link previews</label>
+            <p class="hint">Turn Arcks hover previews on or off without disabling the extension.</p>
+          </div>
+          <div class="switch-line">
+            <label class="toggle">
+              <input type="checkbox" id="enabled" checked>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <label class="label" for="hoverDelay">Hover delay</label>
+            <p class="hint">Lower values feel faster. Use 200-300 ms for an Arc-like preview.</p>
+          </div>
+          <input type="number" id="hoverDelay" value="250" min="100" max="3000" step="50">
+        </div>
+      </section>
+
+      <section>
+        <div class="section-head">
+          <h2>AI Connection</h2>
+          <p class="section-note">OpenRouter is recommended</p>
+        </div>
+
+        <div class="row">
+          <div>
+            <label class="label" for="provider">Provider</label>
+            <p class="hint">OpenRouter lets you route previews through different model families.</p>
+          </div>
+          <div class="select-wrap">
+            <select id="provider">
+              <option value="openrouter">OpenRouter</option>
+              <option value="nvidia">NVIDIA NIM</option>
+              <option value="gemini">Google Gemini 2.5 Flash</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="row" id="modelRow">
+          <div>
+            <label class="label" for="modelPreset">Model</label>
+            <p class="hint">Pick a preset or choose Custom to paste a provider model id.</p>
+          </div>
+          <div class="select-wrap">
+            <select id="modelPreset"></select>
+          </div>
+        </div>
+
+        <div class="row" id="customModelRow">
+          <div>
+            <label class="label" for="customModel">Custom model id</label>
+            <p class="hint">Use ids like openai/gpt-4o-mini or nvidia/model-name.</p>
+          </div>
+          <input type="text" id="customModel" placeholder="provider/model-id" spellcheck="false">
+        </div>
+
+        <div class="row">
+          <div>
+            <label class="label" for="workerUrl">Worker URL</label>
+            <p class="hint">Your Cloudflare Worker endpoint. It must start with https://.</p>
+          </div>
+          <input type="text" id="workerUrl" placeholder="https://arcks.yourname.workers.dev" spellcheck="false">
+        </div>
+      </section>
+    </main>
+
+    <div class="actions">
+      <div class="status" id="status"></div>
+      <div class="button-row">
+        <button id="reset" type="button">Reset</button>
+        <button id="save" type="button" class="primary">Save Settings</button>
+      </div>
     </div>
-    <p class="hint">Which AI model to use for generating summaries</p>
   </div>
-
-  <div class="section-label">Configuration</div>
-  <div class="setting-group">
-    <label for="workerUrl">Worker URL</label>
-    <input type="text" id="workerUrl" placeholder="https://arcks.yourname.workers.dev">
-    <p class="hint">Your Cloudflare Worker URL</p>
-  </div>
-
-  <div class="setting-group">
-    <label for="hoverDelay">Hover Delay (ms)</label>
-    <input type="number" id="hoverDelay" value="350" min="100" max="3000" step="50">
-    <p class="hint">Time to wait before showing preview (100-3000ms)</p>
-  </div>
-
-  <button id="save">Save Settings</button>
-
-  <div class="status" id="status"></div>
 
   <script src="options.js"></script>
 </body>

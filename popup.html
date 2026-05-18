@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Arcks</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #090a0d;
+      --panel: #11141b;
+      --line: rgba(255, 255, 255, 0.1);
+      --text: rgba(255, 255, 255, 0.94);
+      --muted: rgba(255, 255, 255, 0.58);
+      --soft: rgba(255, 255, 255, 0.36);
+      --accent: #8fb7ff;
+      --ok: #42d392;
+      --danger: #ff7a7a;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      width: 340px;
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      letter-spacing: 0;
+    }
+
+    .shell {
+      padding: 16px;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .brand img {
+      width: 34px;
+      height: 34px;
+      border-radius: 9px;
+      border: 1px solid var(--line);
+      background: #050609;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 17px;
+      line-height: 1.1;
+    }
+
+    .sub {
+      margin: 3px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .toggle {
+      position: relative;
+      width: 46px;
+      height: 27px;
+      flex: 0 0 auto;
+    }
+
+    .toggle input {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+    }
+
+    .toggle span {
+      position: absolute;
+      inset: 0;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.16);
+      cursor: pointer;
+      transition: background 0.18s ease;
+    }
+
+    .toggle span::before {
+      content: "";
+      position: absolute;
+      width: 21px;
+      height: 21px;
+      left: 2px;
+      top: 2px;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+      transition: transform 0.18s cubic-bezier(0.2, 0, 0, 1);
+    }
+
+    .toggle input:checked + span {
+      background: #6f9eff;
+    }
+
+    .toggle input:checked + span::before {
+      transform: translateX(19px);
+    }
+
+    .status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 14px 0;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--panel);
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--danger);
+      flex: 0 0 auto;
+    }
+
+    .status.ready .dot { background: var(--ok); }
+
+    .meta {
+      display: grid;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    .meta-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .meta-row strong {
+      color: var(--text);
+      font-weight: 650;
+      text-align: right;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 200px;
+    }
+
+    .actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    button {
+      min-height: 36px;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      background: var(--panel);
+      color: var(--text);
+      font: inherit;
+      font-size: 12px;
+      font-weight: 720;
+      cursor: pointer;
+      transition: background 0.16s ease, transform 0.16s ease, border-color 0.16s ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      border-color: rgba(255, 255, 255, 0.2);
+      background: #171b25;
+    }
+
+    .primary {
+      background: var(--accent);
+      color: #08101f;
+      border-color: transparent;
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header>
+      <div class="brand">
+        <img src="icons/icon48.png" alt="Arcks">
+        <div>
+          <h1>Arcks</h1>
+          <p class="sub">AI previews before you click</p>
+        </div>
+      </div>
+      <label class="toggle" title="Enable link previews">
+        <input type="checkbox" id="enabled">
+        <span></span>
+      </label>
+    </header>
+
+    <div class="status" id="status">
+      <span class="dot"></span>
+      <span id="statusText">Checking setup</span>
+    </div>
+
+    <div class="meta">
+      <div class="meta-row">
+        <span>Provider</span>
+        <strong id="providerLabel">OpenRouter</strong>
+      </div>
+      <div class="meta-row">
+        <span>Model</span>
+        <strong id="modelLabel">Gemini 2.5 Flash</strong>
+      </div>
+      <div class="meta-row">
+        <span>Hover delay</span>
+        <strong id="delayLabel">250 ms</strong>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button id="settings" class="primary" type="button">Settings</button>
+      <button id="refresh" type="button">Refresh Page</button>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

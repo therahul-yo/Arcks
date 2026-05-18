@@ -8,6 +8,15 @@
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
   },
+  "action": {
+    "default_title": "Arcks",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
   "permissions": [
     "activeTab",
     "storage"
@@ -21,16 +30,8 @@
   "content_scripts": [
     {
       "matches": [
-        "https://www.google.com/search*",
-        "https://www.google.co.in/search*",
-        "https://www.google.co.uk/search*",
-        "https://www.google.ca/search*",
-        "https://www.google.com.au/search*",
-        "https://www.google.de/search*",
-        "https://www.google.fr/search*",
-        "https://www.google.es/search*",
-        "https://www.google.it/search*",
-        "https://www.google.co.jp/search*"
+        "http://*/*",
+        "https://*/*"
       ],
       "js": ["content.js"],
       "css": ["styles.css"],
@@ -39,6 +40,6 @@
   ],
   "options_ui": {
     "page": "options.html",
-    "open_in_tab": false
+    "open_in_tab": true
   }
 }

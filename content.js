@@ -12,9 +12,10 @@
   let hideTimeout = null;
   let popup = null;
   let shadowRoot = null;
-  let settings = { hoverDelay: 350, enabled: true, workerUrl: '' };
+  let settings = { hoverDelay: 250, enabled: true, workerUrl: '' };
   let isPopupHovered = false;
   let currentRequestId = 0;
+  let currentHoveredUrl = '';
 
   // Client-side cache: URL -> { title, summary, bullets, timestamp }
   const CACHE_DURATION = 10 * 60 * 1000;
@@ -22,6 +23,13 @@
 
   chrome.runtime.sendMessage({ action: 'getSettings' }, (response) => {
     if (response) settings = { ...settings, ...response };
+  });
+
+  chrome.storage.onChanged?.addListener((changes, areaName) => {
+    if (areaName !== 'sync') return;
+    for (const [key, change] of Object.entries(changes)) {
+      if (key in settings) settings[key] = change.newValue;
+    }
   });
 
   // ===== ICONS (Lucide, 24x24 viewBox, 1.75 stroke) =====
@@ -93,28 +101,32 @@
     .arcks-popup {
       position: fixed;
       z-index: 2147483647;
-      width: 512px;
-      max-width: 92vw;
-      min-height: 328px;
+      width: 360px;
+      max-width: min(88vw, 360px);
+      min-height: 164px;
+      max-height: 340px;
       background:
         linear-gradient(180deg, rgba(0, 0, 0, 0.98), rgba(0, 0, 0, 0.9)),
         rgba(0, 0, 0, 0.94);
       backdrop-filter: blur(34px) saturate(165%);
       -webkit-backdrop-filter: blur(34px) saturate(165%);
       border: 1px solid rgba(255, 255, 255, 0.055);
-      border-radius: 16px;
+      border-radius: 12px;
       box-shadow:
         0 28px 90px rgba(0, 0, 0, 0.74),
         0 0 0 1px rgba(255,255,255,0.03),
         inset 0 1px 0 rgba(255,255,255,0.05);
-      padding: 26px 24px 76px;
+      padding: 16px 16px 48px;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       color: #ffffff;
       opacity: 0;
-      transform: translateY(8px) scale(0.985) perspective(1px);
+      filter: blur(5px);
+      transform: translate3d(0, 8px, 0) scale(0.975);
       transition:
-        opacity 0.16s cubic-bezier(0.22, 1, 0.36, 1),
-        transform 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+        opacity 0.22s cubic-bezier(0.2, 0, 0, 1),
+        filter 0.22s cubic-bezier(0.2, 0, 0, 1),
+        transform 0.28s cubic-bezier(0.2, 0, 0, 1);
+      will-change: opacity, filter, transform;
       pointer-events: auto;
       transform-origin: top center;
       overflow: hidden;
@@ -122,48 +134,51 @@
 
     .arcks-popup.visible {
       opacity: 1;
-      transform: translateY(0) scale(1);
+      filter: blur(0);
+      transform: translate3d(0, 0, 0) scale(1);
     }
 
     .arcks-popup.hiding {
       opacity: 0 !important;
-      transform: translateY(5px) scale(0.985) perspective(1px) !important;
-      transition: opacity 0.13s cubic-bezier(0.22, 1, 0.36, 1),
-                  transform 0.13s cubic-bezier(0.22, 1, 0.36, 1);
+      filter: blur(4px) !important;
+      transform: translate3d(0, 5px, 0) scale(0.985) !important;
+      transition: opacity 0.18s cubic-bezier(0.2, 0, 0, 1),
+                  filter 0.18s cubic-bezier(0.2, 0, 0, 1),
+                  transform 0.2s cubic-bezier(0.2, 0, 0, 1);
     }
 
     .arcks-eyebrow {
       display: flex;
       align-items: center;
-      gap: 8px;
-      margin-bottom: 12px;
+      gap: 7px;
+      margin-bottom: 8px;
       min-width: 0;
     }
 
-    .arcks-favicon { width:18px; height:18px; border-radius:4px; flex-shrink:0; }
+    .arcks-favicon { width:15px; height:15px; border-radius:3px; flex-shrink:0; }
 
     .arcks-host {
-      font-size:13px; font-weight:650; color:rgba(255,255,255,0.76);
+      font-size:11px; font-weight:650; color:rgba(255,255,255,0.68);
       letter-spacing:0; text-transform:none;
       overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
     }
 
     .arcks-headline {
-      font-size:22px;
+      font-size:16px;
       font-weight:760;
       color:rgba(255,255,255,0.93);
-      margin:0 0 16px 0;
+      margin:0 0 11px 0;
       line-height:1.32;
       letter-spacing:0;
       display:-webkit-box;
-      -webkit-line-clamp:2;
+      -webkit-line-clamp:3;
       -webkit-box-orient:vertical;
       overflow:hidden;
     }
 
     .arcks-insights {
       display: grid;
-      gap: 14px;
+      gap: 9px;
       margin: 0;
       padding: 0;
       list-style: none;
@@ -171,21 +186,20 @@
 
     .arcks-insight {
       display: grid;
-      grid-template-columns: 26px 1fr;
-      gap: 14px;
+      grid-template-columns: 16px 1fr;
+      gap: 8px;
       align-items: start;
-      font-size: 20px;
-      line-height: 1.5;
+      font-size: 13.5px;
+      line-height: 1.4;
       font-weight: 650;
       color: rgba(255,255,255,0.82);
       letter-spacing: 0;
     }
 
     .arcks-insight span {
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
+      display: block;
+      overflow-wrap: anywhere;
+      word-break: normal;
     }
 
     .arcks-insight strong {
@@ -194,18 +208,18 @@
     }
 
     .arcks-insight-icon {
-      width: 24px;
-      height: 24px;
-      color: rgba(255,255,255,0.31);
-      margin-top: 4px;
+      width: 15px;
+      height: 15px;
+      color: rgba(255,255,255,0.34);
+      margin-top: 1px;
     }
 
     .arcks-actions {
       position:absolute;
-      right:14px;
-      bottom:14px;
+      right:10px;
+      bottom:10px;
       display:flex;
-      gap:10px;
+      gap:7px;
       align-items:center;
     }
 
@@ -214,8 +228,8 @@
       display:flex;
       align-items:center;
       justify-content:center;
-      width:54px;
-      height:54px;
+      width:30px;
+      height:30px;
       border-radius:999px;
       background:rgba(255,255,255,0.13);
       border:1px solid rgba(255,255,255,0.13);
@@ -234,15 +248,15 @@
 
     .arcks-share svg,
     .arcks-open svg {
-      width:25px;
-      height:25px;
+      width:15px;
+      height:15px;
     }
 
     /* Skeleton */
     .arcks-skeleton { animation: arcks-pulse 1.8s ease-in-out infinite; }
-    .arcks-skeleton-header { height:16px; width:44%; background:rgba(255,255,255,0.07); border-radius:4px; margin-bottom:18px; }
-    .arcks-skeleton-title { height:28px; background:rgba(255,255,255,0.1); border-radius:6px; margin-bottom:20px; width:86%; }
-    .arcks-skeleton-line { height:22px; background:rgba(255,255,255,0.055); border-radius:5px; margin-bottom:14px; }
+    .arcks-skeleton-header { height:9px; width:44%; background:rgba(255,255,255,0.07); border-radius:4px; margin-bottom:11px; }
+    .arcks-skeleton-title { height:16px; background:rgba(255,255,255,0.1); border-radius:5px; margin-bottom:12px; width:86%; }
+    .arcks-skeleton-line { height:11px; background:rgba(255,255,255,0.055); border-radius:4px; margin-bottom:8px; }
     .arcks-skeleton-line:nth-child(2) { width:100%; }
     .arcks-skeleton-line:nth-child(3) { width:90%; }
     .arcks-skeleton-line:nth-child(4) { width:65%; }
@@ -254,17 +268,17 @@
       margin-bottom: 12px;
     }
 
-    .arcks-error { color:rgba(255,140,140,0.9); font-size:16px; text-align:left; line-height:1.5; font-weight:650; }
+    .arcks-error { color:rgba(255,140,140,0.9); font-size:12px; text-align:left; line-height:1.35; font-weight:650; }
 
     @media (max-width: 560px) {
       .arcks-popup {
         width: calc(100vw - 24px);
-        min-height: 292px;
-        padding: 22px 20px 72px;
+        min-height: 164px;
+        padding: 16px 16px 48px;
       }
 
-      .arcks-headline { font-size: 19px; }
-      .arcks-insight { font-size: 17px; gap: 11px; }
+      .arcks-headline { font-size: 15px; }
+      .arcks-insight { font-size: 13px; gap: 7px; }
     }
   `;
 
@@ -298,7 +312,7 @@
       popupEl.style.visibility = 'hidden';
       popupEl.classList.add('visible');
     }
-    const popupW = popupEl.offsetWidth || 512;
+    const popupW = popupEl.offsetWidth || 360;
     const popupH = popupEl.offsetHeight || 200;
     if (!wasVisible) {
       popupEl.classList.remove('visible');
@@ -415,10 +429,11 @@
   }
 
   // ===== RENDER =====
-  function showLoading(linkRect) {
+  function showLoading(linkRect, url) {
     createPopupContainer();
     clearHideTimeout();
 
+    const hostname = getHostname(url);
     const popupEl = document.createElement('div');
     popupEl.className = 'arcks-popup';
     popupEl.innerHTML = `
@@ -465,7 +480,7 @@
       <ul class="arcks-insights">
         ${bullets.map((bullet, index) => `
           <li class="arcks-insight">
-            ${insightIcon(index)}
+            ${insightIcon(bullet)}
             <span>${formatInsight(bullet)}</span>
           </li>
         `).join('')}
@@ -498,7 +513,7 @@
 
   function showError(popupEl, message) {
     if (!popupEl || !shadowRoot?.contains(popupEl)) return;
-    buildError(popupEl, message);
+    buildError(popupEl, friendlyError(message));
   }
 
   // ===== HIDE =====
@@ -513,12 +528,12 @@
 
     setTimeout(() => {
       if (el.classList.contains('hiding')) el.remove();
-    }, 160);
+    }, 220);
   }
 
   function scheduleHide() {
     clearHideTimeout();
-    hideTimeout = setTimeout(() => hidePopup(), 150);
+    hideTimeout = setTimeout(() => hidePopup(), 220);
   }
 
   function clearHideTimeout() {
@@ -540,11 +555,11 @@
   }
 
   // ===== BACKGROUND CALL =====
-  function callBackground(url) {
+  function callBackground(url, pageHint = '') {
     return new Promise((resolve, reject) => {
       const to = setTimeout(() => reject(new Error('Request timed out')), 15000);
 
-      chrome.runtime.sendMessage({ action: 'getSummary', url }, (data) => {
+      chrome.runtime.sendMessage({ action: 'getSummary', url, pageHint }, (data) => {
         clearTimeout(to);
         if (chrome.runtime.lastError) {
           reject(new Error(chrome.runtime.lastError.message));
@@ -560,15 +575,17 @@
   async function handleLinkHover(link) {
     if (!settings.enabled) return;
 
-    const url = link.href;
+    const url = getOutboundUrl(link);
     if (!isValidUrl(url)) return;
-    if (!isSearchResultLink(link)) return;
-    if (url === currentHoveredLink?.href) return;
+    if (!isSearchResultLink(link, url)) return;
+    if (url === currentHoveredUrl) return;
 
     currentHoveredLink = link;
+    currentHoveredUrl = url;
     const requestId = ++currentRequestId;
     const linkRect = link.getBoundingClientRect();
-    const popupEl = showLoading(linkRect);
+    const pageHint = getLinkContext(link);
+    const popupEl = showLoading(linkRect, url);
 
     const cached = getCached(url);
     if (cached) {
@@ -577,7 +594,7 @@
     }
 
     try {
-      const data = await callBackground(url);
+      const data = await callBackground(url, pageHint);
       if (currentRequestId !== requestId) return; // stale
       if (data && (data.title || data.summary || data.description)) {
         setCache(url, {
@@ -586,7 +603,7 @@
           summary: data.summary,
           bullets: data.bullets
         });
-        showSummary(popupEl, data, url);
+        showPreview(popupEl, data, url);
       } else {
         showError(popupEl, 'Unable to generate preview');
       }
@@ -604,7 +621,7 @@
     clearTimeout(hoverTimeout);
     clearHideTimeout();
 
-    if (currentHoveredLink?.href === link.href) {
+    if (currentHoveredLink === link) {
       isPopupHovered = false;
       return;
     }
@@ -617,9 +634,11 @@
   function onMouseLeave(e) {
     const link = e.target.closest('a[href]');
     if (!link) return;
+    if (e.relatedTarget && link.contains(e.relatedTarget)) return;
 
     clearTimeout(hoverTimeout);
     currentHoveredLink = null;
+    currentHoveredUrl = '';
     scheduleHide();
   }
 
@@ -630,14 +649,66 @@
     catch { return false; }
   }
 
-  function isSearchResultLink(link) {
-    if (!link.href) return false;
+  function isSearchResultLink(link, url) {
+    if (!link.href || !url) return false;
     try {
-      const hostname = new URL(link.href).hostname.toLowerCase();
-      if (hostname.includes('google.')) return false;
-      const selectors = ['#search', '#rso', '.g', '[data-hveid]', '.yuRUbf', '.tF2Cxc'];
-      return selectors.some(sel => link.closest(sel) !== null);
+      const hostname = new URL(url).hostname.toLowerCase();
+      if (isGooglePage()) {
+        if (hostname.includes('google.')) return false;
+        const selectors = [
+          '#search',
+          '#rso',
+          '#bres',
+          '[role="main"]',
+          '.g',
+          '[data-hveid]',
+          '[data-ved]',
+          '[jscontroller]',
+          '.yuRUbf',
+          '.tF2Cxc'
+        ];
+        return selectors.some(sel => link.closest(sel) !== null);
+      }
+
+      if (hostname === location.hostname.toLowerCase() && link.hash && link.pathname === location.pathname) {
+        return false;
+      }
+
+      if (!link.textContent.trim() && !link.querySelector('img, svg')) {
+        return false;
+      }
+
+      return true;
     } catch { return false; }
+  }
+
+  function isGooglePage() {
+    return location.hostname.toLowerCase().includes('google.') && location.pathname.startsWith('/search');
+  }
+
+  function getOutboundUrl(link) {
+    if (!link?.href) return '';
+
+    try {
+      const parsed = new URL(link.href);
+      const hostname = parsed.hostname.toLowerCase();
+      const currentHost = location.hostname.toLowerCase();
+
+      if (hostname.includes('google.') && currentHost.includes('google.')) {
+        const target = parsed.searchParams.get('q') || parsed.searchParams.get('url');
+        return isValidUrl(target) ? target : '';
+      }
+
+      return parsed.href;
+    } catch {
+      return '';
+    }
+  }
+
+  function getLinkContext(link) {
+    const container = link.closest('.g, [data-hveid], [data-ved], article, section, li, div') || link;
+    const text = (container.innerText || link.innerText || '').replace(/\s+/g, ' ').trim();
+    return text.slice(0, 1200);
   }
 
   function getHostname(urlStr) {
@@ -655,7 +726,7 @@
 
   function normalizeBullets(data) {
     if (Array.isArray(data.bullets) && data.bullets.length) {
-      return data.bullets.slice(0, 4).map(String).filter(Boolean);
+      return data.bullets.slice(0, 3).map(String).filter(Boolean);
     }
 
     const text = data.summary || data.description || '';
@@ -665,7 +736,7 @@
       .filter(Boolean);
 
     if (sentences.length) {
-      return sentences.slice(0, 4);
+      return sentences.slice(0, 3);
     }
 
     return ['Preview is ready. Open the page for the full context.'];
@@ -679,21 +750,54 @@
     }
     return escapeHtml(raw);
   }
-
   function stripHtml(text) {
     const div = document.createElement('div');
     div.innerHTML = String(text || '');
     return div.textContent || '';
   }
 
-  function insightIcon(index) {
-    const icons = [
-      '<svg class="arcks-insight-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M7 8h10M7 12h7M8 19l-4 3v-17a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H8z" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-      '<svg class="arcks-insight-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M16 11a4 4 0 1 0-8 0M5 21a7 7 0 0 1 14 0M17 8a3 3 0 0 1 3 3M21 21a5 5 0 0 0-3-4.58M7 8a3 3 0 0 0-3 3M3 21a5 5 0 0 1 3-4.58" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-      '<svg class="arcks-insight-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16M8 14h.01M12 14h.01M16 14h.01" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-      '<svg class="arcks-insight-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M20 12l-8 8-9-9V4h7zM7.5 7.5h.01" stroke-linecap="round" stroke-linejoin="round"/></svg>'
-    ];
-    return icons[index % icons.length];
+  function friendlyError(message) {
+    const text = String(message || '');
+    if (/requires more credits|can only afford|credits/i.test(text)) {
+      return 'Model needs more provider credits. Pick a cheaper model or add credits in settings.';
+    }
+    if (/api key|not configured|unauthorized|401/i.test(text)) {
+      return 'AI provider key is missing or invalid. Check the worker secret.';
+    }
+    if (/rate limit|429/i.test(text)) {
+      return 'Preview limit reached. Try again in a minute.';
+    }
+    return text.replace(/^API error:\s*\d+\s*-\s*/i, '') || 'Failed to load preview.';
+  }
+
+  function insightIcon(text) {
+    const raw = String(text || '').toLowerCase();
+    const name =
+      /price|cost|free|paid|revenue|funding|money|budget/.test(raw) ? 'dollar' :
+      /date|release|launch|time|schedule|calendar|today|month|year/.test(raw) ? 'calendar' :
+      /user|people|community|customer|team|developer|student/.test(raw) ? 'users' :
+      /integrat|connect|api|plugin|app|workflow|channel|whatsapp|telegram/.test(raw) ? 'nodes' :
+      /performance|speed|rank|benchmark|fast|scale|capable/.test(raw) ? 'gauge' :
+      /security|privacy|safe|local|device|protect/.test(raw) ? 'shield' :
+      /github|code|open source|developer|repo|model|technical/.test(raw) ? 'code' :
+      /feature|function|capability|support|manage|send|clear|check/.test(raw) ? 'spark' :
+      /experience|review|moment|describe|design|interface/.test(raw) ? 'star' :
+      'info';
+
+    const paths = {
+      info: '<path d="M12 8h.01M11 12h1v4h1" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="9"/>',
+      dollar: '<path d="M12 2v20M17 6.5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" stroke-linecap="round" stroke-linejoin="round"/>',
+      calendar: '<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16" stroke-linecap="round" stroke-linejoin="round"/>',
+      users: '<path d="M16 11a4 4 0 1 0-8 0M5 21a7 7 0 0 1 14 0M17 8a3 3 0 0 1 3 3M21 21a5 5 0 0 0-3-4.5" stroke-linecap="round" stroke-linejoin="round"/>',
+      nodes: '<circle cx="6" cy="7" r="3"/><circle cx="18" cy="7" r="3"/><circle cx="12" cy="18" r="3"/><path d="M8.5 9.5 10.5 15M15.5 9.5 13.5 15" stroke-linecap="round" stroke-linejoin="round"/>',
+      gauge: '<path d="M4 14a8 8 0 1 1 16 0M12 14l4-5M8 18h8" stroke-linecap="round" stroke-linejoin="round"/>',
+      shield: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke-linecap="round" stroke-linejoin="round"/>',
+      code: '<path d="m8 9-4 3 4 3M16 9l4 3-4 3M14 5l-4 14" stroke-linecap="round" stroke-linejoin="round"/>',
+      spark: '<path d="M13 2 4 14h7l-1 8 10-12h-7l1-8z" stroke-linecap="round" stroke-linejoin="round"/>',
+      star: '<path d="m12 3 2.7 5.47 6.03.88-4.36 4.25 1.03 6-5.4-2.84-5.4 2.84 1.03-6-4.36-4.25 6.03-.88z" stroke-linecap="round" stroke-linejoin="round"/>'
+    };
+
+    return `<svg class="arcks-insight-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">${paths[name]}</svg>`;
   }
 
   function shareIcon() {
