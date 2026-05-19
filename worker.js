@@ -37,6 +37,18 @@ const DEFAULT_OPENROUTER_MODEL = "google/gemini-2.5-flash";
 const DEFAULT_NVIDIA_MODEL = "nvidia/llama-3.3-nemotron-super-49b-v1.5";
 const MAX_SUMMARY_TOKENS = 512;
 
+// Network timeouts
+const PROVIDER_TIMEOUT_MS = 15000;  // AI provider HTTP calls
+const PAGE_FETCH_TIMEOUT_MS = 8000; // target page GET
+
+// Field-level caps on the persisted summary
+const MAX_TITLE_LEN    = 180;
+const MAX_HEADLINE_LEN = 240;
+const MAX_SUMMARY_LEN  = 600;
+const MAX_BULLET_LEN   = 250;
+const MAX_BULLETS      = 4;
+const MIN_BULLETS      = 1;
+
 export default {
   async fetch(request, env, ctx) {
     const origin = request.headers.get("Origin");
@@ -129,6 +141,36 @@ export default {
   }
 };
 
+// ---- Shared Network Helpers ----
+
+async function fetchWithTimeout(url, init, timeoutMs) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// ---- Schema Validation ----
+
+function validateSummary(obj) {
+  if (!obj || typeof obj !== "object") return false;
+  if (typeof obj.title !== "string" || !obj.title.trim()) return false;
+  if (typeof obj.headline !== "string" || !obj.headline.trim()) return false;
+  if (typeof obj.summary !== "string") return false;
+  if (!Array.isArray(obj.bullets)) return false;
+  if (obj.bullets.length < MIN_BULLETS || obj.bullets.length > MAX_BULLETS) return false;
+  for (const b of obj.bullets) {
+    if (typeof b !== "string" || !b.trim() || b.length > MAX_BULLET_LEN) return false;
+  }
+  if (obj.title.length > MAX_TITLE_LEN) return false;
+  if (obj.headline.length > MAX_HEADLINE_LEN) return false;
+  if (obj.summary.length > MAX_SUMMARY_LEN) return false;
+  return true;
+}
+
 // ---- Rate Limiting ----
 
 function checkRateLimit(ip) {
@@ -207,7 +249,7 @@ async function getSummaryFromGemini(env, url, pageContent) {
 
   const prompt = buildSummarizationPrompt(url, pageContent);
 
-  const response = await fetch(
+  const response = await fetchWithTimeout(
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
     {
       method: "POST",
@@ -220,12 +262,14 @@ async function getSummaryFromGemini(env, url, pageContent) {
           responseMimeType: "application/json"
         }
       })
-    }
+    },
+    PROVIDER_TIMEOUT_MS
   );
 
   if (!response.ok) {
-    const errorText = await response.text();
-    console.error(`Gemini API error: ${response.status} - ${errorText}`);
+    // Read + discard body so connection releases; do not log it (may echo keys).
+    await response.text().catch(() => "");
+    console.error("gemini.error", { status: response.status });
     throw new Error(`AI provider error (${response.status})`);
   }
 
@@ -253,7 +297,7 @@ async function getSummaryFromOpenRouter(env, url, pageContent, model = DEFAULT_O
 
   const prompt = buildSummarizationPrompt(url, pageContent);
 
-  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+  const response = await fetchWithTimeout("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -277,11 +321,11 @@ async function getSummaryFromOpenRouter(env, url, pageContent, model = DEFAULT_O
       max_tokens: MAX_SUMMARY_TOKENS,
       response_format: { type: "json_object" }
     })
-  });
+  }, PROVIDER_TIMEOUT_MS);
 
   if (!response.ok) {
-    const errorText = await response.text();
-    console.error(`OpenRouter API error: ${response.status} - ${errorText}`);
+    const errorText = await response.text().catch(() => "");
+    console.error("openrouter.error", { status: response.status });
     throw new Error(`OpenRouter error (${response.status}): ${summarizeProviderError(errorText)}`);
   }
 
@@ -301,7 +345,7 @@ async function getSummaryFromNvidia(env, url, pageContent, model = DEFAULT_NVIDI
 
   const prompt = buildSummarizationPrompt(url, pageContent);
 
-  const response = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
+  const response = await fetchWithTimeout("https://integrate.api.nvidia.com/v1/chat/completions", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -323,11 +367,11 @@ async function getSummaryFromNvidia(env, url, pageContent, model = DEFAULT_NVIDI
       max_tokens: MAX_SUMMARY_TOKENS,
       response_format: { type: "json_object" }
     })
-  });
+  }, PROVIDER_TIMEOUT_MS);
 
   if (!response.ok) {
-    const errorText = await response.text();
-    console.error(`NVIDIA NIM API error: ${response.status} - ${errorText}`);
+    const errorText = await response.text().catch(() => "");
+    console.error("nvidia.error", { status: response.status });
     throw new Error(`NVIDIA NIM error (${response.status}): ${summarizeProviderError(errorText)}`);
   }
 
@@ -383,15 +427,8 @@ function summarizeProviderError(errorText) {
 }
 
 function parseSummaryResponse(text, url) {
-  if (!text) {
-    const hostname = new URL(url).hostname;
-    return {
-      title: hostname,
-      headline: hostname,
-      summary: "Unable to generate summary.",
-      bullets: ["Unable to generate summary."]
-    };
-  }
+  const hostname = safeHostname(url);
+  if (!text) return fallbackSummary(hostname);
 
   let parsed;
   try {
@@ -399,40 +436,86 @@ function parseSummaryResponse(text, url) {
   } catch {
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
-      try {
-        parsed = JSON.parse(jsonMatch[0]);
-      } catch {
-        // Parse failed
-      }
+      try { parsed = JSON.parse(jsonMatch[0]); } catch { /* noop */ }
     }
   }
 
-  const title = parsed?.title || new URL(url).hostname;
-  const headline = parsed?.headline || parsed?.summary || title;
-  const summary = parsed?.summary || text.replace(/\{[\s\S]*\}|```json|```/g, "").trim().substring(0, 250) || "Unable to generate summary.";
-  const bullets = Array.isArray(parsed?.bullets)
-    ? parsed.bullets.map(String).filter(Boolean).slice(0, 4)
-    : summary.split(/(?<=[.!?])\s+/).filter(Boolean).slice(0, 4);
+  const candidate = buildCandidateSummary(parsed, text, hostname);
+
+  if (validateSummary(candidate)) {
+    return candidate;
+  }
+
+  console.error("schema.invalid", { url: hostname });
+  return fallbackSummary(hostname, text);
+}
+
+function buildCandidateSummary(parsed, text, hostname) {
+  const title    = clamp(strOrNull(parsed?.title) || hostname, MAX_TITLE_LEN);
+  const headline = clamp(strOrNull(parsed?.headline) || strOrNull(parsed?.summary) || title, MAX_HEADLINE_LEN);
+  const summary  = clamp(
+    strOrNull(parsed?.summary) ||
+    String(text || "").replace(/\{[\s\S]*\}|```json|```/g, "").trim().slice(0, MAX_SUMMARY_LEN) ||
+    "Unable to generate summary.",
+    MAX_SUMMARY_LEN
+  );
+
+  let bullets;
+  if (Array.isArray(parsed?.bullets)) {
+    bullets = parsed.bullets
+      .map(b => clamp(String(b == null ? "" : b).trim(), MAX_BULLET_LEN))
+      .filter(Boolean)
+      .slice(0, MAX_BULLETS);
+  } else {
+    bullets = summary
+      .split(/(?<=[.!?])\s+/)
+      .map(s => clamp(s.trim(), MAX_BULLET_LEN))
+      .filter(Boolean)
+      .slice(0, MAX_BULLETS);
+  }
+
+  if (bullets.length === 0) bullets = [clamp(summary, MAX_BULLET_LEN) || "Unable to generate summary."];
 
   return { title, headline, summary, bullets };
+}
+
+function fallbackSummary(hostname, text) {
+  const trimmed = clamp(String(text || "").replace(/\{[\s\S]*\}|```json|```/g, "").trim(), MAX_SUMMARY_LEN);
+  const summary = trimmed || "Unable to generate summary.";
+  return {
+    title: clamp(hostname || "Preview", MAX_TITLE_LEN),
+    headline: clamp(hostname || "Preview", MAX_HEADLINE_LEN),
+    summary,
+    bullets: [clamp(summary, MAX_BULLET_LEN)]
+  };
+}
+
+function strOrNull(v) {
+  if (typeof v !== "string") return null;
+  const t = v.trim();
+  return t.length ? t : null;
+}
+
+function clamp(s, max) {
+  const str = String(s == null ? "" : s);
+  return str.length > max ? str.slice(0, max) : str;
+}
+
+function safeHostname(url) {
+  try { return new URL(url).hostname; } catch { return ""; }
 }
 
 // ---- Page Content Fetching ----
 
 async function fetchPageContent(url) {
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
-
-    const response = await fetch(url, {
+    const response = await fetchWithTimeout(url, {
       method: "GET",
       headers: {
         "User-Agent": "Mozilla/5.0 (compatible; ArcksBot/1.0)"
       },
-      signal: controller.signal
-    });
-
-    clearTimeout(timeout);
+      redirect: "follow"
+    }, PAGE_FETCH_TIMEOUT_MS);
 
     if (!response.ok) {
       return "";
@@ -482,21 +565,31 @@ function sanitizeHtmlToText(html) {
 
 function validateAndSanitizeUrl(urlStr) {
   try {
+    if (typeof urlStr !== "string" || urlStr.length === 0 || urlStr.length > 2048) {
+      return null;
+    }
+
     const url = new URL(urlStr);
 
     if (url.protocol !== "http:" && url.protocol !== "https:") {
       return null;
     }
 
-    const hostname = url.hostname.toLowerCase();
-    if (hostname === "localhost" || hostname.endsWith(".localhost")) {
+    // Hostname per WHATWG URL: IPv6 hosts come back bracketed. Strip them.
+    let hostname = url.hostname.toLowerCase();
+    if (hostname.startsWith("[") && hostname.endsWith("]")) {
+      hostname = hostname.slice(1, -1);
+    }
+
+    if (!hostname || hostname === "localhost" || hostname.endsWith(".localhost")) {
       return null;
     }
 
-    // Block IP addresses in private ranges
-    const ipRegex = /^(\d{1,3}\.){3}\d{1,3}$/;
-    if (ipRegex.test(hostname)) {
+    // IPv4 — block private / loopback / link-local / multicast / reserved.
+    const ipv4Regex = /^(\d{1,3}\.){3}\d{1,3}$/;
+    if (ipv4Regex.test(hostname)) {
       const parts = hostname.split(".").map(Number);
+      if (parts.some(p => Number.isNaN(p) || p < 0 || p > 255)) return null;
       if (parts[0] === 10 ||
           (parts[0] === 172 && parts[1] >= 16 && parts[1] < 32) ||
           (parts[0] === 192 && parts[1] === 168) ||
@@ -508,12 +601,23 @@ function validateAndSanitizeUrl(urlStr) {
       }
     }
 
-    if (hostname === "127.0.0.1" || hostname === "::1" || hostname === "0.0.0.0" ||
+    // IPv6 — block loopback, link-local (fe80::/10), unique local (fc00::/7),
+    // unspecified, IPv4-mapped, and IPv4-compat.
+    if (hostname.includes(":")) {
+      if (hostname === "::1" || hostname === "::") return null;
+      if (hostname.startsWith("fe80:") || hostname.startsWith("fe80::")) return null;
+      // fc00::/7 — first byte begins with fc or fd
+      const prefix2 = hostname.slice(0, 2);
+      if (prefix2 === "fc" || prefix2 === "fd") return null;
+      if (hostname.startsWith("::ffff:")) return null; // IPv4-mapped
+      if (hostname.startsWith("::") && /^::[\d.]+$/.test(hostname)) return null; // IPv4-compat
+    }
+
+    // Hardcoded fallbacks (belt and suspenders).
+    if (hostname === "127.0.0.1" || hostname === "0.0.0.0" ||
         hostname.startsWith("172.17.") || hostname.startsWith("172.18.")) {
       return null;
     }
-
-    if (urlStr.length > 2048) return null;
 
     return urlStr;
   } catch {
