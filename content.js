@@ -312,6 +312,51 @@
       .arcks-open:hover { transform: none; }
       .arcks-skeleton { animation: none !important; }
     }
+
+    /* ─── Light theme: keyed off OS preference ─── */
+    @media (prefers-color-scheme: light) {
+      .arcks-popup {
+        background:
+          linear-gradient(180deg, rgba(255,255,255,0.985), rgba(252,251,248,0.95)),
+          rgba(255,255,255,0.98);
+        border: 1px solid rgba(17,17,17,0.08);
+        color: #161616;
+        box-shadow:
+          0 28px 90px rgba(17,17,17,0.16),
+          0 0 0 1px rgba(17,17,17,0.04),
+          inset 0 1px 0 rgba(255,255,255,0.9);
+      }
+      .arcks-host       { color: rgba(17,17,17,0.62); }
+      .arcks-headline   { color: rgba(17,17,17,0.92); }
+      .arcks-insight    { color: rgba(17,17,17,0.78); }
+      .arcks-insight strong { color: rgba(17,17,17,0.94); }
+      .arcks-insight-icon  { color: rgba(17,17,17,0.42); }
+
+      .arcks-share,
+      .arcks-open {
+        background: rgba(17,17,17,0.06);
+        border: 1px solid rgba(17,17,17,0.1);
+        color: rgba(17,17,17,0.7);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.5);
+      }
+      .arcks-share:hover,
+      .arcks-open:hover {
+        background: rgba(17,17,17,0.1);
+        color: rgba(17,17,17,0.95);
+      }
+      .arcks-share:focus-visible,
+      .arcks-open:focus-visible {
+        outline: 2px solid rgba(40, 110, 220, 0.85);
+        background: rgba(17,17,17,0.1);
+        color: rgba(17,17,17,0.96);
+      }
+
+      .arcks-skeleton-header { background: rgba(17,17,17,0.06); }
+      .arcks-skeleton-title  { background: rgba(17,17,17,0.09); }
+      .arcks-skeleton-line   { background: rgba(17,17,17,0.05); }
+
+      .arcks-error { color: #b3261e; }
+    }
   `;
 
   // ===== POPUP CREATION =====
