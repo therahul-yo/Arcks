@@ -775,25 +775,42 @@
     catch { return false; }
   }
 
+  // Google search-result containers, ordered most-specific → most-generic.
+  // We try them in order so newer Google variants get caught by later, broader
+  // matches if the precise classnames change underneath us.
+  const GOOGLE_RESULT_SELECTORS = [
+    '.yuRUbf',          // canonical result card wrapper
+    '.tF2Cxc',          // alt result card wrapper
+    'div.g',            // legacy result block
+    '[data-hveid]',     // every interactive result element
+    '[data-ved]',       // analytics-tagged element
+    '[jscontroller]',   // controller-bound result
+    '#rso',             // results list root
+    '#bres',            // bottom results
+    '#search',          // entire search panel
+    '[role="main"]'     // last-resort outer container
+  ];
+
+  // Block elements that signal chrome / nav / sidebar — never our target.
+  const GOOGLE_BLOCK_SELECTORS = [
+    '[role="navigation"]',
+    'header',
+    'footer',
+    'nav',
+    'aside',
+    '#hdtb',            // header tools bar
+    '#botstuff'         // related-searches bar
+  ];
+
+  let warnedNoSelectorMatch = false;
+
   function isSearchResultLink(link, url) {
     if (!link.href || !url) return false;
     try {
       const hostname = new URL(url).hostname.toLowerCase();
       if (isGooglePage()) {
         if (hostname.includes('google.')) return false;
-        const selectors = [
-          '#search',
-          '#rso',
-          '#bres',
-          '[role="main"]',
-          '.g',
-          '[data-hveid]',
-          '[data-ved]',
-          '[jscontroller]',
-          '.yuRUbf',
-          '.tF2Cxc'
-        ];
-        return selectors.some(sel => link.closest(sel) !== null);
+        return isLikelyGoogleResultLink(link);
       }
 
       if (hostname === location.hostname.toLowerCase() && link.hash && link.pathname === location.pathname) {
@@ -806,6 +823,36 @@
 
       return true;
     } catch { return false; }
+  }
+
+  function isLikelyGoogleResultLink(link) {
+    // Hard exclusions first.
+    if (GOOGLE_BLOCK_SELECTORS.some(sel => link.closest(sel) !== null)) {
+      return false;
+    }
+
+    // Tier 1 — explicit container match.
+    if (GOOGLE_RESULT_SELECTORS.some(sel => link.closest(sel) !== null)) {
+      return true;
+    }
+
+    // Tier 2 — heuristic fallback for unseen Google variants.
+    // A real result link is usually wrapped in an h3 (the title link) or has
+    // substantive visible text content. Pure-icon or nav-style anchors fail.
+    const inHeading = link.closest('h3') !== null;
+    const text = (link.textContent || '').trim();
+    if (inHeading || text.length > 24) {
+      // First-time fallback — emit a single warn so we know selectors drifted.
+      if (!warnedNoSelectorMatch && !inHeading) {
+        warnedNoSelectorMatch = true;
+        try {
+          console.warn('[Arcks] Google selector list missed a result; using heuristic fallback. Update GOOGLE_RESULT_SELECTORS if this keeps happening.');
+        } catch { /* noop */ }
+      }
+      return true;
+    }
+
+    return false;
   }
 
   function isGooglePage() {
