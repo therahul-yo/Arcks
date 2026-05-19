@@ -7,32 +7,50 @@
   <style>
     :root {
       color-scheme: dark;
-      --bg: #090a0d;
-      --panel: #11141b;
-      --line: rgba(255, 255, 255, 0.1);
-      --text: rgba(255, 255, 255, 0.94);
-      --muted: rgba(255, 255, 255, 0.58);
-      --soft: rgba(255, 255, 255, 0.36);
-      --accent: #8fb7ff;
-      --ok: #42d392;
-      --danger: #ff7a7a;
+      --bg:           #0a0b0f;
+      --bg-2:         #0e1016;
+      --panel:        #14161e;
+      --panel-2:      #1a1d26;
+      --line:         rgba(255, 255, 255, 0.09);
+      --line-strong:  rgba(255, 255, 255, 0.16);
+      --text:         rgba(255, 255, 255, 0.96);
+      --muted:        rgba(255, 255, 255, 0.58);
+      --soft:         rgba(255, 255, 255, 0.36);
+      --accent:       #8fb7ff;
+      --accent-strong:#b5ccff;
+      --ok:           #42d392;
+      --warn:         #f6c177;
+      --danger:       #ff7a7a;
+      --radius-lg:    18px;
+      --radius-md:    12px;
+      --radius-sm:    9px;
     }
 
     * { box-sizing: border-box; }
 
-    body {
-      width: 340px;
+    html, body {
       margin: 0;
+      width: 340px;
       background: var(--bg);
       color: var(--text);
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       letter-spacing: 0;
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+
+    body {
+      background:
+        radial-gradient(120% 60% at 0% 0%, rgba(143,183,255,0.10), transparent 55%),
+        radial-gradient(120% 60% at 100% 0%, rgba(80,200,130,0.06), transparent 55%),
+        var(--bg);
     }
 
     .shell {
-      padding: 16px;
+      padding: 16px 16px 14px;
     }
 
+    /* ─── Header ─── */
     header {
       display: flex;
       align-items: center;
@@ -45,34 +63,44 @@
     .brand {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 11px;
       min-width: 0;
     }
 
-    .brand img {
-      width: 34px;
-      height: 34px;
-      border-radius: 9px;
-      border: 1px solid var(--line);
-      background: #050609;
+    .brand-mark {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      object-fit: cover;
+      background: linear-gradient(180deg, #1a1f2b, #0b0d12);
+      border: 1px solid var(--line-strong);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.08),
+        0 6px 16px rgba(0,0,0,0.5);
+      flex-shrink: 0;
     }
+
+    .brand-text { min-width: 0; }
 
     h1 {
       margin: 0;
-      font-size: 17px;
-      line-height: 1.1;
+      font-size: 16px;
+      font-weight: 760;
+      letter-spacing: -0.005em;
+      line-height: 1.15;
     }
 
     .sub {
-      margin: 3px 0 0;
+      margin: 2px 0 0;
       color: var(--muted);
-      font-size: 12px;
+      font-size: 11.5px;
     }
 
+    /* ─── Master toggle ─── */
     .toggle {
       position: relative;
-      width: 46px;
-      height: 27px;
+      width: 44px;
+      height: 26px;
       flex: 0 0 auto;
     }
 
@@ -80,115 +108,330 @@
       position: absolute;
       inset: 0;
       opacity: 0;
+      cursor: pointer;
     }
 
     .toggle span {
       position: absolute;
       inset: 0;
-      border: 1px solid var(--line);
       border-radius: 999px;
-      background: rgba(255, 255, 255, 0.16);
+      background: rgba(255, 255, 255, 0.14);
+      border: 1px solid var(--line);
       cursor: pointer;
-      transition: background 0.18s ease;
+      transition: background 0.18s ease, border-color 0.18s ease;
     }
 
     .toggle span::before {
       content: "";
       position: absolute;
-      width: 21px;
-      height: 21px;
+      width: 20px;
+      height: 20px;
       left: 2px;
       top: 2px;
       border-radius: 50%;
       background: #fff;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
       transition: transform 0.18s cubic-bezier(0.2, 0, 0, 1);
     }
 
     .toggle input:checked + span {
       background: #6f9eff;
+      border-color: rgba(255,255,255,0.2);
     }
 
-    .toggle input:checked + span::before {
-      transform: translateX(19px);
+    .toggle input:checked + span::before { transform: translateX(18px); }
+
+    /* ─── Sections ─── */
+    section + section { margin-top: 12px; }
+
+    .section-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin: 14px 0 7px;
+      font-size: 10.5px;
+      font-weight: 720;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--soft);
     }
 
-    .status {
+    .section-note {
+      font-weight: 580;
+      letter-spacing: 0;
+      text-transform: none;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    /* ─── Health pill ─── */
+    .health {
       display: flex;
       align-items: center;
-      gap: 8px;
-      margin: 14px 0;
-      padding: 10px;
-      border: 1px solid var(--line);
-      border-radius: 10px;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: var(--radius-md);
       background: var(--panel);
+      border: 1px solid var(--line);
       color: var(--muted);
+      font-size: 12px;
+      cursor: pointer;
+      transition: background 0.16s ease, border-color 0.16s ease;
+      width: 100%;
+      text-align: left;
+      font: inherit;
       font-size: 12px;
     }
 
-    .dot {
+    .health:hover {
+      background: var(--panel-2);
+      border-color: var(--line-strong);
+    }
+
+    .health .dot {
       width: 8px;
       height: 8px;
       border-radius: 50%;
-      background: var(--danger);
+      background: var(--soft);
       flex: 0 0 auto;
+      box-shadow: 0 0 0 0 rgba(66, 211, 146, 0.4);
+      transition: background 0.18s ease, box-shadow 0.18s ease;
     }
 
-    .status.ready .dot { background: var(--ok); }
+    .health.ok   .dot { background: var(--ok);     box-shadow: 0 0 0 3px rgba(66, 211, 146, 0.16); }
+    .health.warn .dot { background: var(--warn);   box-shadow: 0 0 0 3px rgba(246, 193, 119, 0.16); }
+    .health.bad  .dot { background: var(--danger); box-shadow: 0 0 0 3px rgba(255, 122, 122, 0.16); }
+    .health.test .dot { background: var(--accent); animation: pulse 1.2s ease-in-out infinite; }
 
-    .meta {
-      display: grid;
-      gap: 8px;
-      margin-bottom: 14px;
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%      { opacity: 0.45; transform: scale(0.8); }
     }
 
-    .meta-row {
-      display: flex;
-      justify-content: space-between;
-      gap: 12px;
-      color: var(--muted);
-      font-size: 12px;
+    .health-text {
+      flex: 1 1 auto;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
-    .meta-row strong {
+    .health-text strong {
       color: var(--text);
-      font-weight: 650;
-      text-align: right;
+      font-weight: 700;
+      margin-right: 6px;
+    }
+
+    .health-action {
+      flex: 0 0 auto;
+      font-size: 11px;
+      color: var(--accent);
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+
+    /* ─── Provider segmented control ─── */
+    .segmented {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 4px;
+      padding: 4px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-md);
+    }
+
+    .seg {
+      padding: 8px 6px;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      font: inherit;
+      font-size: 12px;
+      font-weight: 660;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.14s ease, color 0.14s ease;
+    }
+
+    .seg:hover  { color: var(--text); }
+
+    .seg.active {
+      background: var(--accent);
+      color: #08101f;
+    }
+
+    .model-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-top: 8px;
+      font-size: 11.5px;
+      color: var(--muted);
+    }
+
+    .model-row strong {
+      color: var(--text);
+      font-weight: 660;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
       max-width: 200px;
     }
 
+    /* ─── Hover delay slider ─── */
+    .slider-card {
+      padding: 12px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-md);
+    }
+
+    .slider-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-bottom: 9px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .slider-head strong {
+      color: var(--text);
+      font-weight: 720;
+      font-size: 13px;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      appearance: none;
+      -webkit-appearance: none;
+      background: transparent;
+      cursor: pointer;
+      margin: 0;
+    }
+
+    input[type="range"]::-webkit-slider-runnable-track {
+      height: 4px;
+      background: linear-gradient(
+        to right,
+        var(--accent) 0%,
+        var(--accent) var(--fill, 50%),
+        rgba(255,255,255,0.12) var(--fill, 50%),
+        rgba(255,255,255,0.12) 100%
+      );
+      border-radius: 999px;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      appearance: none;
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.45), 0 0 0 1px rgba(143,183,255,0.45);
+      margin-top: -6px;
+      transition: transform 0.12s ease;
+    }
+
+    input[type="range"]:active::-webkit-slider-thumb { transform: scale(1.12); }
+
+    .slider-foot {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 6px;
+      font-size: 10.5px;
+      color: var(--soft);
+    }
+
+    /* ─── Action grid ─── */
     .actions {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 8px;
+      gap: 6px;
+      margin-top: 12px;
     }
 
-    button {
+    .actions.three { grid-template-columns: 1fr 1fr 1fr; }
+
+    button.btn {
       min-height: 36px;
+      padding: 8px 10px;
       border: 1px solid var(--line);
-      border-radius: 9px;
+      border-radius: 10px;
       background: var(--panel);
       color: var(--text);
       font: inherit;
       font-size: 12px;
-      font-weight: 720;
+      font-weight: 700;
+      letter-spacing: 0;
       cursor: pointer;
-      transition: background 0.16s ease, transform 0.16s ease, border-color 0.16s ease;
+      transition: background 0.14s ease, border-color 0.14s ease, transform 0.12s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
     }
 
-    button:hover {
+    button.btn:hover {
+      background: var(--panel-2);
+      border-color: var(--line-strong);
       transform: translateY(-1px);
-      border-color: rgba(255, 255, 255, 0.2);
-      background: #171b25;
     }
 
-    .primary {
+    button.btn:focus-visible {
+      outline: 2px solid rgba(143, 183, 255, 0.7);
+      outline-offset: 1px;
+    }
+
+    button.btn.primary {
       background: var(--accent);
       color: #08101f;
       border-color: transparent;
+    }
+
+    button.btn.primary:hover { background: var(--accent-strong); }
+
+    button.btn .ic {
+      width: 13px;
+      height: 13px;
+      flex-shrink: 0;
+    }
+
+    /* ─── Footer ─── */
+    .footer {
+      margin-top: 14px;
+      padding-top: 12px;
+      border-top: 1px solid var(--line);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 10.5px;
+      color: var(--soft);
+    }
+
+    .footer a {
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 660;
+    }
+
+    .footer a:hover { color: var(--accent-strong); }
+
+    .ver {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 10px;
+    }
+
+    /* ─── Disabled state ─── */
+    body.is-disabled .health,
+    body.is-disabled .segmented,
+    body.is-disabled .slider-card,
+    body.is-disabled .actions {
+      opacity: 0.5;
+      pointer-events: none;
     }
   </style>
 </head>
@@ -196,41 +439,72 @@
   <div class="shell">
     <header>
       <div class="brand">
-        <img src="icons/icon48.png" alt="Arcks">
-        <div>
+        <img src="icons/icon48.png" alt="" class="brand-mark">
+        <div class="brand-text">
           <h1>Arcks</h1>
-          <p class="sub">AI previews before you click</p>
+          <p class="sub" id="brandSub">AI previews before you click</p>
         </div>
       </div>
-      <label class="toggle" title="Enable link previews">
+      <label class="toggle" title="Enable hover previews">
         <input type="checkbox" id="enabled">
         <span></span>
       </label>
     </header>
 
-    <div class="status" id="status">
+    <button class="health" id="health" type="button" aria-label="Test worker connection">
       <span class="dot"></span>
-      <span id="statusText">Checking setup</span>
-    </div>
+      <span class="health-text" id="healthText"><strong>Checking</strong> <span id="healthDetail">setup…</span></span>
+      <span class="health-action" id="healthAction">Test</span>
+    </button>
 
-    <div class="meta">
-      <div class="meta-row">
-        <span>Provider</span>
-        <strong id="providerLabel">OpenRouter</strong>
+    <section>
+      <div class="section-head">
+        Provider
+        <span class="section-note" id="modelHint">Pick a backend</span>
       </div>
-      <div class="meta-row">
+      <div class="segmented" id="providerSeg" role="group" aria-label="AI Provider">
+        <button class="seg" type="button" data-provider="openrouter">OpenRouter</button>
+        <button class="seg" type="button" data-provider="gemini">Gemini</button>
+        <button class="seg" type="button" data-provider="nvidia">NVIDIA</button>
+      </div>
+      <div class="model-row">
         <span>Model</span>
-        <strong id="modelLabel">Gemini 2.5 Flash</strong>
+        <strong id="modelLabel">—</strong>
       </div>
-      <div class="meta-row">
-        <span>Hover delay</span>
-        <strong id="delayLabel">250 ms</strong>
+    </section>
+
+    <section>
+      <div class="section-head">
+        Hover delay
+        <span class="section-note"><span id="delayVal">250</span> ms</span>
       </div>
-    </div>
+      <div class="slider-card">
+        <div class="slider-head">
+          <span>Wait before preview</span>
+          <strong id="delayValBig">250 ms</strong>
+        </div>
+        <input type="range" id="delay" min="100" max="1500" step="50" value="250">
+        <div class="slider-foot">
+          <span>Snappy</span>
+          <span>Patient</span>
+        </div>
+      </div>
+    </section>
 
     <div class="actions">
-      <button id="settings" class="primary" type="button">Settings</button>
-      <button id="refresh" type="button">Refresh Page</button>
+      <button class="btn" id="refresh" type="button" title="Reload the active tab so the content script picks up new settings">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"/><path d="M20.49 15a9 9 0 0 1-14.85 3.36L1 14"/></svg>
+        Refresh tab
+      </button>
+      <button class="btn primary" id="settings" type="button">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        Settings
+      </button>
+    </div>
+
+    <div class="footer">
+      <span class="ver" id="version">v1.0.0</span>
+      <a href="https://github.com/therahul-yo/Arcks" target="_blank" rel="noopener">Source ↗</a>
     </div>
   </div>
 
