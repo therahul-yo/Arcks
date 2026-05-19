@@ -674,84 +674,235 @@
       color: var(--ink-mute);
     }
 
-    /* ───── 05 — Plates / gallery ───── */
-    .plates {
+    /* ───── 05 — Plates / gallery (stage) ───── */
+    .stage {
       grid-column: 1 / span 12;
       display: grid;
       grid-template-columns: repeat(12, 1fr);
       column-gap: var(--col-gap);
-      row-gap: 40px;
+      row-gap: 24px;
     }
-    .plate-img {
+
+    /* Featured plate */
+    .stage-frame {
+      grid-column: 1 / span 12;
       position: relative;
+      aspect-ratio: 16 / 10;
       border: 1px solid var(--rule);
-      background: #0e0f13;
+      background:
+        repeating-linear-gradient(
+          45deg,
+          rgba(17,17,17,0.018) 0 1px,
+          transparent 1px 14px
+        ),
+        var(--paper-2);
       overflow: hidden;
-      display: flex;
-      flex-direction: column;
     }
-    .plate-img .frame {
-      position: relative;
-      flex: 1;
-      overflow: hidden;
-      aspect-ratio: 4 / 3;
-      background: #0e0f13;
+    .stage-frame::before,
+    .stage-frame::after,
+    .stage-corner {
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      border: 1px solid var(--ink);
+      background: var(--paper);
+      z-index: 4;
     }
-    .plate-img img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      object-position: 0% 0%;
-      filter: contrast(1.04) saturate(1.02);
-      transition: transform 0.5s ease;
-      display: block;
+    .stage-frame::before { content: ''; top: -8px; left: -8px; }
+    .stage-frame::after  { content: ''; bottom: -8px; right: -8px; }
+    .stage-corner.tr     { top: -8px; right: -8px; }
+    .stage-corner.bl     { bottom: -8px; left: -8px; }
+
+    .stage-slide {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 32px;
+      opacity: 0;
+      transition: opacity 0.45s ease;
+      pointer-events: none;
     }
-    .plate-img:hover img { transform: scale(1.02); }
-    .plate-img .caption {
+    .stage-slide.is-active { opacity: 1; pointer-events: auto; }
+    .stage-slide img {
+      max-width: 100%;
+      max-height: 100%;
+      width: auto;
+      height: auto;
+      object-fit: contain;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.35), 0 0 0 1px rgba(17,17,17,0.08);
+    }
+    .stage-index {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      z-index: 5;
+      font-family: var(--type-mono);
+      font-size: 11px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--ink);
+      background: var(--paper);
+      padding: 6px 10px;
+      border: 1px solid var(--ink);
+    }
+    .stage-index em {
+      font-family: var(--type-mono);
+      font-style: normal;
+      color: var(--accent);
+      margin-right: 8px;
+    }
+    .stage-counter {
+      position: absolute;
+      bottom: 16px;
+      right: 16px;
+      z-index: 5;
+      font-family: var(--type-mono);
+      font-size: 11px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--paper);
+      background: var(--ink);
+      padding: 6px 10px;
+    }
+
+    /* Caption strip */
+    .stage-meta {
+      grid-column: 1 / span 12;
       display: grid;
       grid-template-columns: minmax(0, auto) minmax(0, 1fr) auto;
-      gap: 16px;
-      align-items: center;
-      padding: 14px 16px;
-      background: var(--paper);
-      color: var(--ink);
-      border-top: 1px solid var(--ink);
+      gap: 24px;
+      align-items: baseline;
+      padding: 16px 0;
+      border-top: 1px solid var(--rule);
+      border-bottom: 1px solid var(--rule-soft);
       font-family: var(--type-mono);
-      font-size: 10.5px;
+      font-size: 11px;
       letter-spacing: 0.08em;
       text-transform: uppercase;
+      color: var(--ink-mute);
     }
-    .plate-img .caption .src,
-    .plate-img .caption .domain {
+    .stage-meta .domain {
+      color: var(--accent);
+      font-weight: 600;
+      letter-spacing: 0.06em;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+    }
+    .stage-meta .title {
+      font-family: var(--type-display);
+      font-style: italic;
+      font-size: 16px;
+      letter-spacing: -0.01em;
+      color: var(--ink);
+      text-transform: none;
+      font-weight: 500;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .stage-meta .page { color: var(--ink); font-weight: 600; }
+
+    /* Chip / arrow controls */
+    .stage-controls {
+      grid-column: 1 / span 12;
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 14px;
+      align-items: center;
+      padding-top: 8px;
+    }
+    .stage-arrow {
+      width: 44px;
+      height: 44px;
+      border: 1px solid var(--ink);
+      background: var(--paper);
+      color: var(--ink);
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      font-family: var(--type-mono);
+      font-size: 18px;
+      transition: background 0.16s ease, color 0.16s ease;
+    }
+    .stage-arrow:hover { background: var(--ink); color: var(--paper); }
+    .stage-arrow:disabled { opacity: 0.3; cursor: not-allowed; }
+    .stage-arrow:disabled:hover { background: var(--paper); color: var(--ink); }
+
+    .stage-chips {
+      display: grid;
+      grid-auto-flow: column;
+      grid-auto-columns: 1fr;
+      gap: 8px;
+    }
+    .stage-chip {
+      position: relative;
+      padding: 14px 12px 12px;
+      background: var(--paper);
+      border: 1px solid var(--rule-soft);
+      color: var(--ink-mute);
+      font-family: var(--type-mono);
+      font-size: 10.5px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      text-align: left;
+      cursor: pointer;
+      transition: background 0.16s ease, color 0.16s ease, border-color 0.16s ease;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      overflow: hidden;
       min-width: 0;
     }
-    .plate-img .caption .src    { color: var(--ink); font-weight: 600; text-align: right; }
-    .plate-img .caption .domain { color: var(--accent); font-weight: 600; letter-spacing: 0.06em; }
-    .plate-img .caption .num    { color: var(--ink-mute); flex-shrink: 0; }
-    .plate-img.b .caption .src,
-    .plate-img.c .caption .src,
-    .plate-img.d .caption .src,
-    .plate-img.e .caption .src { display: none; }
-    .plate-img.b .caption,
-    .plate-img.c .caption,
-    .plate-img.d .caption,
-    .plate-img.e .caption { grid-template-columns: minmax(0, 1fr) auto; }
-    .plate-img .stamp { display: none; }
-    .plate-img.a { grid-column: span 8; }
-    .plate-img.b { grid-column: span 4; }
-    .plate-img.c { grid-column: span 4; }
-    .plate-img.d { grid-column: span 4; }
-    .plate-img.e { grid-column: span 4; }
-    .plate-img.f { grid-column: span 8; }
-    .plate-img.a .frame,
-    .plate-img.f .frame { aspect-ratio: 16 / 10; }
-    .plate-img.b .frame,
-    .plate-img.c .frame,
-    .plate-img.d .frame,
-    .plate-img.e .frame { aspect-ratio: 5 / 4; }
+    .stage-chip .ch-num    { font-weight: 600; color: var(--ink); font-size: 11px; }
+    .stage-chip .ch-domain {
+      color: var(--ink-mute);
+      font-size: 10px;
+      letter-spacing: 0.05em;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .stage-chip::before {
+      content: '';
+      position: absolute;
+      left: 0; right: 0; top: 0;
+      height: 3px;
+      background: var(--ink);
+      transform: scaleX(0);
+      transform-origin: left center;
+      transition: transform 0.2s ease;
+    }
+    .stage-chip:hover { border-color: var(--ink); color: var(--ink); }
+    .stage-chip.is-active {
+      border-color: var(--ink);
+      background: var(--paper);
+    }
+    .stage-chip.is-active::before { background: var(--accent); transform: scaleX(1); }
+    .stage-chip.is-active .ch-num { color: var(--accent); }
+    .stage-chip.is-active .ch-domain { color: var(--ink); }
+
+    /* Hint */
+    .stage-hint {
+      grid-column: 1 / span 12;
+      margin-top: 4px;
+      font-family: var(--type-mono);
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--ink-faint);
+      text-align: right;
+    }
+    .stage-hint kbd {
+      font-family: var(--type-mono);
+      font-size: 10px;
+      padding: 2px 6px;
+      border: 1px solid var(--rule-soft);
+      background: var(--paper);
+      color: var(--ink-mute);
+      margin: 0 2px;
+    }
 
     /* ───── 06 — Specifications table ───── */
     .specs {
@@ -1018,8 +1169,14 @@
       .plate-left { grid-column: 1 / span 12; margin-bottom: 24px; }
       .specimen { grid-column: 1 / span 12; }
 
-      .plate-img.a, .plate-img.f { grid-column: span 12; aspect-ratio: 16 / 9; }
-      .plate-img.b, .plate-img.c, .plate-img.d, .plate-img.e { grid-column: span 6; }
+      .stage-frame { aspect-ratio: 4 / 3; }
+      .stage-slide { padding: 18px; }
+      .stage-meta { grid-template-columns: 1fr; gap: 6px; }
+      .stage-meta .page { justify-self: end; }
+      .stage-chips { grid-auto-flow: row; grid-template-columns: repeat(5, 1fr); }
+      .stage-chip { padding: 8px 6px; }
+      .stage-chip .ch-domain { display: none; }
+      .stage-arrow { width: 40px; height: 40px; }
 
       .spec-row .k { grid-column: 1 / span 5; }
       .spec-row .v { grid-column: 6 / span 7; }
@@ -1350,61 +1507,67 @@
         <div class="sec-byline">— OpenClaw, Hermes, Medium, Anthropic, The Verge</div>
       </div>
 
-      <div class="plates">
-        <figure class="plate-img a">
-          <div class="frame">
+      <div class="stage" id="plateStage">
+        <div class="stage-frame">
+          <span class="stage-corner tr" aria-hidden="true"></span>
+          <span class="stage-corner bl" aria-hidden="true"></span>
+
+          <span class="stage-index"><em id="plateNum">№01</em><span id="plateDomain">openclaw.ai</span></span>
+          <span class="stage-counter"><span id="plateIdx">01</span> / 05</span>
+
+          <figure class="stage-slide is-active" data-domain="openclaw.ai" data-title="Search result, in context" data-page="P.16">
             <img src="sample-openclaw.png" alt="Arcks preview card on an OpenClaw Google Search result" loading="lazy">
-          </div>
-          <figcaption class="caption">
-            <span class="domain">№01 · openclaw.ai</span>
-            <span class="src">Search result, in context</span>
-            <span class="num">P.16</span>
-          </figcaption>
-        </figure>
-
-        <figure class="plate-img b">
-          <div class="frame">
+          </figure>
+          <figure class="stage-slide" data-domain="hermes-agent.nousresearch.com" data-title="Hermes Agent" data-page="P.17">
             <img src="sample-hermes.png" alt="Arcks preview card on a Hermes Agent search result" loading="lazy">
-          </div>
-          <figcaption class="caption">
-            <span class="domain">№02 · hermes-agent.nousresearch.com</span>
-            <span class="src">Hermes Agent</span>
-            <span class="num">P.17</span>
-          </figcaption>
-        </figure>
-
-        <figure class="plate-img c">
-          <div class="frame">
+          </figure>
+          <figure class="stage-slide" data-domain="medium.com" data-title="DGX Spark review" data-page="P.18">
             <img src="sample-dgx-spark.png" alt="Arcks preview card on a Medium article about NVIDIA DGX Spark" loading="lazy">
-          </div>
-          <figcaption class="caption">
-            <span class="domain">№03 · medium.com</span>
-            <span class="src">DGX Spark review</span>
-            <span class="num">P.18</span>
-          </figcaption>
-        </figure>
-
-        <figure class="plate-img d">
-          <div class="frame">
+          </figure>
+          <figure class="stage-slide" data-domain="red.anthropic.com" data-title="Claude Mythos Preview" data-page="P.19">
             <img src="sample-claude-mythos.png" alt="Arcks preview card on Anthropic Claude Mythos Preview result" loading="lazy">
-          </div>
-          <figcaption class="caption">
-            <span class="domain">№04 · red.anthropic.com</span>
-            <span class="src">Claude Mythos Preview</span>
-            <span class="num">P.19</span>
-          </figcaption>
-        </figure>
-
-        <figure class="plate-img e">
-          <div class="frame">
+          </figure>
+          <figure class="stage-slide" data-domain="theverge.com" data-title="The Verge archives" data-page="P.20">
             <img src="sample-verge.png" alt="Arcks preview card on The Verge archives result" loading="lazy">
+          </figure>
+        </div>
+
+        <div class="stage-meta">
+          <span class="domain" id="stageDomain">№01 · openclaw.ai</span>
+          <span class="title"  id="stageTitle">Search result, in context</span>
+          <span class="page"   id="stagePage">P.16</span>
+        </div>
+
+        <div class="stage-controls">
+          <button class="stage-arrow" id="stagePrev" aria-label="Previous plate">←</button>
+          <div class="stage-chips" id="stageChips">
+            <button class="stage-chip is-active" data-target="0">
+              <span class="ch-num">№01</span>
+              <span class="ch-domain">openclaw.ai</span>
+            </button>
+            <button class="stage-chip" data-target="1">
+              <span class="ch-num">№02</span>
+              <span class="ch-domain">hermes-agent</span>
+            </button>
+            <button class="stage-chip" data-target="2">
+              <span class="ch-num">№03</span>
+              <span class="ch-domain">medium.com</span>
+            </button>
+            <button class="stage-chip" data-target="3">
+              <span class="ch-num">№04</span>
+              <span class="ch-domain">red.anthropic.com</span>
+            </button>
+            <button class="stage-chip" data-target="4">
+              <span class="ch-num">№05</span>
+              <span class="ch-domain">theverge.com</span>
+            </button>
           </div>
-          <figcaption class="caption">
-            <span class="domain">№05 · theverge.com</span>
-            <span class="src">The Verge archives</span>
-            <span class="num">P.20</span>
-          </figcaption>
-        </figure>
+          <button class="stage-arrow" id="stageNext" aria-label="Next plate">→</button>
+        </div>
+
+        <div class="stage-hint">
+          Use <kbd>←</kbd> <kbd>→</kbd> to flip plates · click any chip to jump
+        </div>
       </div>
     </div>
   </section>
@@ -1573,6 +1736,62 @@
       }, { threshold: 0.35, rootMargin: '-30% 0px -50% 0px' });
       sections.forEach(s => io.observe(s));
     }
+
+    // ─── Plate stage navigation ───
+    (() => {
+      const stage   = document.getElementById('plateStage');
+      if (!stage) return;
+      const slides  = Array.from(stage.querySelectorAll('.stage-slide'));
+      const chips   = Array.from(stage.querySelectorAll('.stage-chip'));
+      const prevBtn = document.getElementById('stagePrev');
+      const nextBtn = document.getElementById('stageNext');
+      const dEl     = document.getElementById('stageDomain');
+      const tEl     = document.getElementById('stageTitle');
+      const pEl     = document.getElementById('stagePage');
+      const numEl   = document.getElementById('plateNum');
+      const domEl   = document.getElementById('plateDomain');
+      const idxEl   = document.getElementById('plateIdx');
+      const total   = slides.length;
+      let current   = 0;
+
+      function pad(n) { return String(n).padStart(2, '0'); }
+
+      function show(i) {
+        current = (i + total) % total;
+        slides.forEach((s, j) => s.classList.toggle('is-active', j === current));
+        chips.forEach((c, j)  => c.classList.toggle('is-active', j === current));
+        const slide = slides[current];
+        const domain = slide.dataset.domain || '';
+        const title  = slide.dataset.title  || '';
+        const page   = slide.dataset.page   || '';
+        const idxLabel = '№' + pad(current + 1);
+        dEl.textContent   = idxLabel + ' · ' + domain;
+        tEl.textContent   = title;
+        pEl.textContent   = page;
+        numEl.textContent = idxLabel;
+        domEl.textContent = domain;
+        idxEl.textContent = pad(current + 1);
+      }
+
+      chips.forEach((c, j) => c.addEventListener('click', () => show(j)));
+      prevBtn.addEventListener('click', () => show(current - 1));
+      nextBtn.addEventListener('click', () => show(current + 1));
+
+      // Keyboard arrows when stage is in view
+      let stageInView = false;
+      const visIo = new IntersectionObserver(([e]) => {
+        stageInView = e.isIntersecting;
+      }, { threshold: 0.3 });
+      visIo.observe(stage);
+
+      document.addEventListener('keydown', e => {
+        if (!stageInView) return;
+        const tag = (document.activeElement && document.activeElement.tagName) || '';
+        if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+        if (e.key === 'ArrowLeft')  { e.preventDefault(); show(current - 1); }
+        if (e.key === 'ArrowRight') { e.preventDefault(); show(current + 1); }
+      });
+    })();
   </script>
 </body>
 </html>
