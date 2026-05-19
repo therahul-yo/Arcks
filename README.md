@@ -57,7 +57,7 @@
 1.  Open Chrome and navigate to `chrome://extensions/`.
 2.  Toggle **Developer mode** in the top right.
 3.  Click **Load unpacked** and select the `arcks` folder.
-4.  **Copy the generated Extension ID** from the card.
+4.  Open the extension's **Options** page — the Extension ID is shown in the **Diagnostics** section with a one-click **Copy** button.
 
 ### 3. Configuration
 
@@ -67,18 +67,59 @@
       'chrome-extension://YOUR_EXTENSION_ID_HERE'
     ];
     ```
-    Redeploy: `npx wrangler deploy worker.js`
+    Redeploy: `npx wrangler deploy`
 
-2.  **Configure the Extension** — open the extension's Options page and set your Worker URL, or edit `background.js` directly:
-    ```javascript
-    const DEFAULT_SETTINGS = {
-      workerUrl: 'https://arcks.yourname.workers.dev',
-      hoverDelay: 500,
-      enabled: true
-    };
-    ```
+2.  **Configure the Extension** — open the Options page and:
+    - Paste your **Worker URL**.
+    - Click **Test connection** — you should see `OK · <ms>` inline. The button hits `GET /health` first (no auth, no rate limit) and falls back to a sample POST if `/health` isn't available yet.
+    - Save.
 
-3.  **Reload the extension** in `chrome://extensions/`.
+3.  **Reload the extension** in `chrome://extensions/` so the content script picks up the new settings.
+
+## 🔬 Staging Environment
+
+`wrangler.toml` ships with a `[env.staging]` block so you can preview worker changes against a separate KV namespace and secrets without affecting production.
+
+```bash
+# one-time: create a staging KV namespace and paste the printed id into
+# the [env.staging.kv_namespaces] block in wrangler.toml (REPLACE_ME).
+npx wrangler kv namespace create ARCKS_KV --env staging
+
+# secrets are per-environment
+npx wrangler secret put OPENROUTER_API_KEY --env staging
+npx wrangler secret put GEMINI_API_KEY    --env staging   # optional
+npx wrangler secret put NIM_API_KEY       --env staging   # optional
+
+# deploy
+npx wrangler deploy --env staging   # → arcks-staging.<you>.workers.dev
+npx wrangler deploy                 # → arcks.<you>.workers.dev (prod)
+```
+
+To monitor uptime, hit the unauthenticated health endpoint:
+
+```bash
+curl https://arcks.<you>.workers.dev/health
+# {"status":"ok","commit":"dev"}
+```
+
+Set `GIT_SHA` as a worker env var in your CI to stamp the deployed commit into the `/health` response.
+
+## 📡 Worker API
+
+`POST /` accepts `{ url, provider?, model?, pageHint? }` and returns:
+
+```json
+{
+  "title": "...",
+  "headline": "...",
+  "summary": "...",
+  "bullets": ["...", "...", "..."],
+  "cached": false,
+  "latencyMs": 348
+}
+```
+
+Errors come back as `{ error, code, requestId }` with a matching `X-Request-Id` response header for log correlation. Successful responses also carry `Cache-Control: public, max-age=600` (cache hits) or `max-age=60` (fresh) so a downstream CDN can tier on top of KV.
 
 ## 📄 License
 

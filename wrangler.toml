@@ -1,17 +1,21 @@
 # Arcks - Cloudflare Worker
-# Deploy with: wrangler deploy
+#
+# Deploy production:  wrangler deploy
+# Deploy staging:     wrangler deploy --env staging
+# Health check:       curl https://<worker-host>/health
+#
+# Required secrets (set via wrangler secret put [--env staging]):
+#   GEMINI_API_KEY       - Google Gemini API key
+#   OPENROUTER_API_KEY   - OpenRouter API key
+#   NIM_API_KEY          - NVIDIA NIM API key
+#
+# Optional env vars:
+#   DEFAULT_PROVIDER     - "openrouter" | "gemini" | "nvidia"
+#   GIT_SHA              - commit SHA stamped onto /health responses
 
 name = "arcks"
 main = "worker.js"
 compatibility_date = "2025-05-01"
-
-# Required secrets (set via wrangler secret put):
-#   GEMINI_API_KEY       - Google Gemini API key (used when provider=gemini)
-#   OPENROUTER_API_KEY   - OpenRouter API key (used when provider=openrouter)
-#   NIM_API_KEY          - NVIDIA NIM API key (used when provider=nvidia)
-#
-# Optional env vars:
-#   DEFAULT_PROVIDER     - "gemini" or "openrouter"
 
 [vars]
 DEFAULT_PROVIDER = "openrouter"
@@ -19,3 +23,18 @@ DEFAULT_PROVIDER = "openrouter"
 [[kv_namespaces]]
 binding = "ARCKS_KV"
 id = "a0388565d0744758bbae84ae7207dd1a"
+
+# ───────────── Staging environment ─────────────
+# Provision a separate KV namespace with:
+#   wrangler kv namespace create ARCKS_KV --env staging
+# then paste its id below (REPLACE_ME). Set secrets with --env staging.
+
+[env.staging]
+name = "arcks-staging"
+
+[env.staging.vars]
+DEFAULT_PROVIDER = "openrouter"
+
+[[env.staging.kv_namespaces]]
+binding = "ARCKS_KV"
+id = "REPLACE_ME_STAGING_KV_ID"
