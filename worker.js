@@ -26,6 +26,18 @@ const RATE_LIMIT_WINDOW_MS = 60000;
 const RATE_LIMIT_MAX = 30;
 const rateLimitMap = new Map();
 
+// In-memory concurrent-request deduper. Per-isolate only — best effort, but
+// catches the common case of N hover events on the same link arriving while
+// the first request is still in flight.
+const inFlight = new Map();
+
+// Retry tuning for transient provider errors (5xx, abort, network).
+const PROVIDER_RETRY_MAX = 2;
+const PROVIDER_RETRY_BASE_MS = 250;
+
+// Default fallback order if the primary provider keeps failing.
+const PROVIDER_FALLBACK_ORDER = ["openrouter", "gemini", "nvidia"];
+
 // Available AI providers
 const PROVIDERS = {
   gemini: "gemini",
@@ -196,47 +208,141 @@ function checkRateLimit(ip) {
 // ---- Main Summary Function ----
 
 async function getSummary(env, url, provider, pageHint = "", model = DEFAULT_OPENROUTER_MODEL) {
-  const kv = env.ARCKS_KV;
   const cacheKey = `summary:${CACHE_VERSION}:${provider}:${model}:${url}`;
+  const t0 = Date.now();
 
-  // Check KV cache
-  if (kv) {
+  // Concurrent-request dedup: if an identical request is already in flight,
+  // join it instead of doing the work twice.
+  const existing = inFlight.get(cacheKey);
+  if (existing) {
+    const result = await existing;
+    return stampMeta(result, { cached: true, latencyMs: Date.now() - t0 });
+  }
+
+  const work = (async () => {
+    const kv = env.ARCKS_KV;
+
+    // 1. KV cache lookup
+    if (kv) {
+      try {
+        const cached = await kv.get(cacheKey, { type: "json" });
+        if (cached && validateSummary(cached)) {
+          return { result: cached, cached: true };
+        }
+      } catch { /* non-fatal */ }
+    }
+
+    // 2. Fetch + sanitize target page (with low-signal fallback to pageHint)
+    let pageContent = await fetchPageContent(url);
+    if (isBlockedOrLowSignalContent(pageContent) && pageHint) {
+      pageContent = `Search result context:\n${String(pageHint).slice(0, 1200)}`;
+    }
+
+    // 3. Call provider with retry + fallback chain
+    const result = await callProviderWithFallback(env, provider, url, pageContent, model);
+
+    // 4. KV write (non-fatal)
+    if (kv) {
+      try {
+        await kv.put(cacheKey, JSON.stringify(result), { expirationTtl: CACHE_TTL_SECONDS });
+      } catch { /* non-fatal */ }
+    }
+
+    return { result, cached: false };
+  })();
+
+  inFlight.set(cacheKey, work.then(w => w.result));
+  try {
+    const { result, cached } = await work;
+    return stampMeta(result, { cached, latencyMs: Date.now() - t0 });
+  } finally {
+    inFlight.delete(cacheKey);
+  }
+}
+
+function stampMeta(summary, { cached, latencyMs }) {
+  // Always return a fresh object so the in-memory cached one isn't mutated.
+  return { ...summary, cached: Boolean(cached), latencyMs: Math.max(0, latencyMs | 0) };
+}
+
+// ---- Provider Dispatch + Retry + Fallback ----
+
+function callProvider(env, provider, url, pageContent, model) {
+  if (provider === PROVIDERS.openrouter) return getSummaryFromOpenRouter(env, url, pageContent, model);
+  if (provider === PROVIDERS.nvidia)     return getSummaryFromNvidia(env, url, pageContent, model);
+  return getSummaryFromGemini(env, url, pageContent);
+}
+
+async function callProviderWithRetry(env, provider, url, pageContent, model) {
+  let lastErr;
+  for (let attempt = 0; attempt <= PROVIDER_RETRY_MAX; attempt++) {
     try {
-      const cached = await kv.get(cacheKey, { type: "json" });
-      if (cached && cached.title && cached.summary && cached.headline && Array.isArray(cached.bullets)) {
-        return cached;
+      return await callProvider(env, provider, url, pageContent, model);
+    } catch (err) {
+      lastErr = err;
+      if (!isTransientProviderError(err) || attempt === PROVIDER_RETRY_MAX) throw err;
+      const delay = PROVIDER_RETRY_BASE_MS * Math.pow(4, attempt); // 250, 1000
+      await sleep(delay);
+    }
+  }
+  throw lastErr;
+}
+
+async function callProviderWithFallback(env, primary, url, pageContent, model) {
+  const chain = buildProviderChain(env, primary);
+  let lastErr;
+  for (const provider of chain) {
+    const m = provider === primary ? model : defaultModelFor(provider);
+    try {
+      return await callProviderWithRetry(env, provider, url, pageContent, m);
+    } catch (err) {
+      lastErr = err;
+      console.error("provider.exhausted", { provider, status: err && err.status });
+      // Only try the next provider if this one looks transient or auth-broken;
+      // a content/parse error from one provider would likely repeat on another.
+      if (!isTransientProviderError(err) && !isUnconfiguredKeyError(err)) {
+        throw err;
       }
-    } catch {
-      // Cache read failure is non-fatal
     }
   }
+  throw lastErr || new Error("All providers exhausted");
+}
 
-  // Fetch page content (server-side)
-  let pageContent = await fetchPageContent(url);
-  if (isBlockedOrLowSignalContent(pageContent) && pageHint) {
-    pageContent = `Search result context:\n${String(pageHint).slice(0, 1200)}`;
+function buildProviderChain(env, primary) {
+  const chain = [primary];
+  for (const p of PROVIDER_FALLBACK_ORDER) {
+    if (p !== primary && hasProviderKey(env, p)) chain.push(p);
   }
+  return chain;
+}
 
-  // Generate summary using configured provider
-  let result;
-  if (provider === PROVIDERS.openrouter) {
-    result = await getSummaryFromOpenRouter(env, url, pageContent, model);
-  } else if (provider === PROVIDERS.nvidia) {
-    result = await getSummaryFromNvidia(env, url, pageContent, model);
-  } else {
-    result = await getSummaryFromGemini(env, url, pageContent);
-  }
+function hasProviderKey(env, provider) {
+  if (provider === PROVIDERS.gemini)     return Boolean(env.GEMINI_API_KEY);
+  if (provider === PROVIDERS.openrouter) return Boolean(env.OPENROUTER_API_KEY);
+  if (provider === PROVIDERS.nvidia)     return Boolean(env.NIM_API_KEY || env.NVIDIA_API_KEY);
+  return false;
+}
 
-  // Cache the result
-  if (kv) {
-    try {
-      await kv.put(cacheKey, JSON.stringify(result), { expirationTtl: CACHE_TTL_SECONDS });
-    } catch {
-      // Cache write failure is non-fatal
-    }
-  }
+function defaultModelFor(provider) {
+  if (provider === PROVIDERS.openrouter) return DEFAULT_OPENROUTER_MODEL;
+  if (provider === PROVIDERS.nvidia)     return DEFAULT_NVIDIA_MODEL;
+  return DEFAULT_OPENROUTER_MODEL;
+}
 
-  return result;
+function isTransientProviderError(err) {
+  if (!err) return false;
+  if (err.name === "AbortError" || err.name === "TypeError") return true;
+  // Provider functions throw "AI provider error (5xx)" / "OpenRouter error (5xx)..." etc.
+  const msg = String(err.message || "");
+  return /\((5\d\d)\)/.test(msg) || /\(429\)/.test(msg);
+}
+
+function isUnconfiguredKeyError(err) {
+  return err && /not configured/.test(String(err.message || ""));
+}
+
+function sleep(ms) {
+  return new Promise(r => setTimeout(r, ms));
 }
 
 // ---- Gemini Provider ----
