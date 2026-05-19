@@ -63,64 +63,57 @@ const MIN_BULLETS      = 1;
 
 export default {
   async fetch(request, env, ctx) {
+    const requestId = newRequestId();
     const origin = request.headers.get("Origin");
+    const { pathname } = new URL(request.url);
+
+    // /health — uptime probe, intentionally unauth'd so monitoring works.
+    if (pathname === "/health" && (request.method === "GET" || request.method === "HEAD")) {
+      return jsonResponse({ status: "ok", commit: env.GIT_SHA || "dev" }, {
+        status: 200,
+        cors: origin && ALLOWED_ORIGINS.includes(origin) ? origin : null,
+        requestId,
+        cache: "no-store"
+      });
+    }
 
     if (request.method === "OPTIONS") {
       return handleCORS(request);
     }
 
     if (!origin || !ALLOWED_ORIGINS.includes(origin)) {
-      return new Response("Forbidden: Invalid origin", {
-        status: 403,
-        headers: { "Content-Type": "text/plain" }
-      });
+      return errorResponse(403, "Forbidden: Invalid origin", "forbidden_origin", { requestId });
     }
 
     if (request.method !== "POST") {
-      return new Response("Method not allowed", {
-        status: 405,
-        headers: corsHeaders(origin)
-      });
+      return errorResponse(405, "Method not allowed", "method_not_allowed", { origin, requestId });
     }
 
-    // Rate limiting
     const clientIp = request.headers.get("CF-Connecting-IP") || "unknown";
     if (!checkRateLimit(clientIp)) {
-      return new Response(JSON.stringify({ error: "Rate limit exceeded. Try again later." }), {
-        status: 429,
-        headers: {
-          ...corsHeaders(origin),
-          "Content-Type": "application/json"
-        }
-      });
+      return errorResponse(429, "Rate limit exceeded. Try again later.", "rate_limited", { origin, requestId });
     }
 
     try {
       const body = await request.text();
 
       if (body.length > 2048) {
-        return new Response("Request body too large", {
-          status: 413,
-          headers: corsHeaders(origin)
-        });
+        return errorResponse(413, "Request body too large", "body_too_large", { origin, requestId });
       }
 
-      const data = JSON.parse(body);
-      const { url, provider: requestedProvider, model: requestedModel, pageHint } = data;
+      let data;
+      try { data = JSON.parse(body); }
+      catch { return errorResponse(400, "Invalid JSON body", "bad_json", { origin, requestId }); }
+
+      const { url, provider: requestedProvider, model: requestedModel, pageHint } = data || {};
 
       if (!url) {
-        return new Response("Missing URL", {
-          status: 400,
-          headers: corsHeaders(origin)
-        });
+        return errorResponse(400, "Missing URL", "missing_url", { origin, requestId });
       }
 
       const validatedUrl = validateAndSanitizeUrl(url);
       if (!validatedUrl) {
-        return new Response("Invalid or forbidden URL", {
-          status: 400,
-          headers: corsHeaders(origin)
-        });
+        return errorResponse(400, "Invalid or forbidden URL", "invalid_url", { origin, requestId });
       }
 
       // Choose provider: request override > env default > fallback to gemini
@@ -134,24 +127,46 @@ export default {
       const model = resolveModel(provider, requestedModel);
       const summary = await getSummary(env, validatedUrl, provider, pageHint, model);
 
-      return new Response(JSON.stringify(summary), {
+      return jsonResponse(summary, {
         status: 200,
-        headers: {
-          ...corsHeaders(origin),
-          "Content-Type": "application/json"
-        }
+        cors: origin,
+        requestId,
+        cache: summary.cached ? "public, max-age=600" : "public, max-age=60"
       });
     } catch (error) {
-      return new Response(JSON.stringify({ error: error.message }), {
-        status: 500,
-        headers: {
-          ...corsHeaders(origin),
-          "Content-Type": "application/json"
-        }
-      });
+      console.error("handler.error", { requestId, name: error && error.name, msg: clamp(String(error && error.message || ""), 200) });
+      return errorResponse(500, error.message || "Internal error", "internal_error", { origin, requestId });
     }
   }
 };
+
+// ---- Response Builders ----
+
+function newRequestId() {
+  try { return crypto.randomUUID(); } catch { return Math.random().toString(36).slice(2, 12); }
+}
+
+function jsonResponse(payload, { status = 200, cors = null, requestId = null, cache = null } = {}) {
+  const headers = {
+    "Content-Type": "application/json",
+    "X-Request-Id": requestId || ""
+  };
+  if (cache) headers["Cache-Control"] = cache;
+  if (cors) Object.assign(headers, corsHeaders(cors));
+  return new Response(JSON.stringify(payload), { status, headers });
+}
+
+function errorResponse(status, message, code, { origin = null, requestId = null } = {}) {
+  return jsonResponse(
+    { error: message, code, requestId },
+    {
+      status,
+      cors: origin && ALLOWED_ORIGINS.includes(origin) ? origin : null,
+      requestId,
+      cache: "no-store"
+    }
+  );
+}
 
 // ---- Shared Network Helpers ----
 
