@@ -686,14 +686,13 @@
       width: 100%;
     }
 
-    /* Featured plate — capped so the chip strip + caption always sit in view */
+    /* Featured plate — frame sizes to the natural image (capped by max-height) */
     .stage-frame {
       grid-column: 1 / span 12;
       position: relative;
-      aspect-ratio: 16 / 10;
-      max-height: min(58vh, 560px);
       width: 100%;
       margin: 0 auto;
+      padding: 28px clamp(48px, 7vw, 72px);
       border: 1px solid var(--rule);
       background:
         repeating-linear-gradient(
@@ -702,10 +701,15 @@
           transparent 1px 14px
         ),
         var(--paper-2);
-      overflow: hidden;
       touch-action: pan-y;
       cursor: grab;
       user-select: none;
+      display: grid;
+      grid-template-columns: 1fr;
+      grid-template-rows: auto;
+      place-items: center;
+      min-height: 280px;
+      transition: min-height 0.3s ease;
     }
     .stage-frame.is-dragging { cursor: grabbing; }
     .stage-frame img { pointer-events: none; }
@@ -725,28 +729,28 @@
     .stage-corner.bl     { bottom: -8px; left: -8px; }
 
     .stage-slide {
-      position: absolute;
-      inset: 0;
-      display: grid;
-      place-items: center;
-      padding: 24px;
-      opacity: 0;
-      transform: scale(0.985);
-      transition: opacity 0.4s ease, transform 0.4s ease;
-      pointer-events: none;
+      display: none;
+      width: 100%;
+      grid-column: 1 / -1;
+      grid-row: 1;
     }
     .stage-slide.is-active {
-      opacity: 1;
-      transform: scale(1);
-      pointer-events: auto;
+      display: grid;
+      place-items: center;
+      animation: plateIn 0.36s ease both;
+    }
+    @keyframes plateIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to   { opacity: 1; transform: translateY(0); }
     }
     .stage-slide img {
+      display: block;
       max-width: 100%;
-      max-height: 100%;
+      max-height: min(56vh, 520px);
       width: auto;
       height: auto;
       object-fit: contain;
-      box-shadow: 0 24px 60px rgba(0,0,0,0.35), 0 0 0 1px rgba(17,17,17,0.08);
+      box-shadow: 0 18px 48px rgba(0,0,0,0.28), 0 0 0 1px rgba(17,17,17,0.08);
     }
 
     /* Floating edge controls — always reachable */
@@ -1194,8 +1198,8 @@
       .plate-left { grid-column: 1 / span 12; margin-bottom: 24px; }
       .specimen { grid-column: 1 / span 12; }
 
-      .stage-frame { aspect-ratio: 4 / 3; max-height: 56vh; }
-      .stage-slide { padding: 14px; }
+      .stage-frame { padding: 22px 56px; min-height: 220px; }
+      .stage-slide img { max-height: 54vh; }
       .stage-meta { grid-template-columns: 1fr; gap: 6px; }
       .stage-meta .page { justify-self: end; }
       .stage-chips { grid-template-columns: repeat(5, 1fr); }
