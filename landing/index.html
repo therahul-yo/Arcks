@@ -693,61 +693,53 @@
     .plate-img .frame {
       position: relative;
       flex: 1;
-      display: grid;
-      place-items: center;
-      padding: 28px;
-      aspect-ratio: 16 / 10;
-      background:
-        radial-gradient(ellipse at top, rgba(255,255,255,0.04), transparent 60%),
-        #0e0f13;
+      overflow: hidden;
+      aspect-ratio: 4 / 3;
+      background: #0e0f13;
     }
     .plate-img img {
-      max-width: 100%;
-      max-height: 100%;
-      width: auto;
-      height: auto;
-      object-fit: contain;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: 0% 0%;
       filter: contrast(1.04) saturate(1.02);
-      transition: transform 0.4s ease;
-      box-shadow: 0 18px 40px rgba(0,0,0,0.55);
+      transition: transform 0.5s ease;
+      display: block;
     }
-    .plate-img:hover img { transform: scale(1.015); }
+    .plate-img:hover img { transform: scale(1.02); }
     .plate-img .caption {
       display: grid;
-      grid-template-columns: 1fr auto;
+      grid-template-columns: minmax(0, auto) minmax(0, 1fr) auto;
       gap: 16px;
       align-items: center;
-      padding: 12px 16px;
+      padding: 14px 16px;
       background: var(--paper);
       color: var(--ink);
       border-top: 1px solid var(--ink);
       font-family: var(--type-mono);
       font-size: 10.5px;
-      letter-spacing: 0.1em;
+      letter-spacing: 0.08em;
       text-transform: uppercase;
     }
-    .plate-img .caption .src { color: var(--ink); font-weight: 600; }
-    .plate-img .caption .num { color: var(--ink-mute); }
-    .plate-img .stamp {
-      position: absolute;
-      top: 14px;
-      left: 14px;
-      font-family: var(--type-mono);
-      font-size: 10px;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      color: rgba(255,255,255,0.85);
-      background: rgba(0,0,0,0.55);
-      padding: 5px 9px;
-      border: 1px solid rgba(255,255,255,0.18);
-      backdrop-filter: blur(4px);
+    .plate-img .caption .src,
+    .plate-img .caption .domain {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      min-width: 0;
     }
-    .plate-img .stamp em {
-      font-family: var(--type-mono);
-      font-style: normal;
-      color: var(--accent);
-      margin-right: 6px;
-    }
+    .plate-img .caption .src    { color: var(--ink); font-weight: 600; text-align: right; }
+    .plate-img .caption .domain { color: var(--accent); font-weight: 600; letter-spacing: 0.06em; }
+    .plate-img .caption .num    { color: var(--ink-mute); flex-shrink: 0; }
+    .plate-img.b .caption .src,
+    .plate-img.c .caption .src,
+    .plate-img.d .caption .src,
+    .plate-img.e .caption .src { display: none; }
+    .plate-img.b .caption,
+    .plate-img.c .caption,
+    .plate-img.d .caption,
+    .plate-img.e .caption { grid-template-columns: minmax(0, 1fr) auto; }
+    .plate-img .stamp { display: none; }
     .plate-img.a { grid-column: span 8; }
     .plate-img.b { grid-column: span 4; }
     .plate-img.c { grid-column: span 4; }
@@ -755,11 +747,11 @@
     .plate-img.e { grid-column: span 4; }
     .plate-img.f { grid-column: span 8; }
     .plate-img.a .frame,
-    .plate-img.f .frame { aspect-ratio: 16 / 9; padding: 36px; }
+    .plate-img.f .frame { aspect-ratio: 16 / 10; }
     .plate-img.b .frame,
     .plate-img.c .frame,
     .plate-img.d .frame,
-    .plate-img.e .frame { aspect-ratio: 4 / 3; padding: 22px; }
+    .plate-img.e .frame { aspect-ratio: 5 / 4; }
 
     /* ───── 06 — Specifications table ───── */
     .specs {
@@ -1361,55 +1353,55 @@
       <div class="plates">
         <figure class="plate-img a">
           <div class="frame">
-            <span class="stamp"><em>№01</em>openclaw.ai</span>
             <img src="sample-openclaw.png" alt="Arcks preview card on an OpenClaw Google Search result" loading="lazy">
           </div>
           <figcaption class="caption">
-            <span class="src">Plate 01 — OpenClaw search result</span>
+            <span class="domain">№01 · openclaw.ai</span>
+            <span class="src">Search result, in context</span>
             <span class="num">P.16</span>
           </figcaption>
         </figure>
 
         <figure class="plate-img b">
           <div class="frame">
-            <span class="stamp"><em>№02</em>hermes-agent.nousresearch.com</span>
             <img src="sample-hermes.png" alt="Arcks preview card on a Hermes Agent search result" loading="lazy">
           </div>
           <figcaption class="caption">
-            <span class="src">Plate 02 — Hermes Agent</span>
+            <span class="domain">№02 · hermes-agent.nousresearch.com</span>
+            <span class="src">Hermes Agent</span>
             <span class="num">P.17</span>
           </figcaption>
         </figure>
 
         <figure class="plate-img c">
           <div class="frame">
-            <span class="stamp"><em>№03</em>medium.com</span>
             <img src="sample-dgx-spark.png" alt="Arcks preview card on a Medium article about NVIDIA DGX Spark" loading="lazy">
           </div>
           <figcaption class="caption">
-            <span class="src">Plate 03 — DGX Spark review</span>
+            <span class="domain">№03 · medium.com</span>
+            <span class="src">DGX Spark review</span>
             <span class="num">P.18</span>
           </figcaption>
         </figure>
 
         <figure class="plate-img d">
           <div class="frame">
-            <span class="stamp"><em>№04</em>red.anthropic.com</span>
             <img src="sample-claude-mythos.png" alt="Arcks preview card on Anthropic Claude Mythos Preview result" loading="lazy">
           </div>
           <figcaption class="caption">
-            <span class="src">Plate 04 — Claude Mythos Preview</span>
+            <span class="domain">№04 · red.anthropic.com</span>
+            <span class="src">Claude Mythos Preview</span>
             <span class="num">P.19</span>
           </figcaption>
         </figure>
 
         <figure class="plate-img e">
           <div class="frame">
-            <span class="stamp"><em>№05</em>theverge.com</span>
             <img src="sample-verge.png" alt="Arcks preview card on The Verge archives result" loading="lazy">
           </div>
           <figcaption class="caption">
-            <span class="src">Plate 05 — The Verge archives</span>
+            <span class="domain">№05 · theverge.com</span>
+            <span class="src">The Verge archives</span>
             <span class="num">P.20</span>
           </figcaption>
         </figure>
