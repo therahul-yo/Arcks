@@ -680,14 +680,20 @@
       display: grid;
       grid-template-columns: repeat(12, 1fr);
       column-gap: var(--col-gap);
-      row-gap: 24px;
+      row-gap: 20px;
+      max-width: 1100px;
+      margin: 0 auto;
+      width: 100%;
     }
 
-    /* Featured plate */
+    /* Featured plate — capped so the chip strip + caption always sit in view */
     .stage-frame {
       grid-column: 1 / span 12;
       position: relative;
       aspect-ratio: 16 / 10;
+      max-height: min(58vh, 560px);
+      width: 100%;
+      margin: 0 auto;
       border: 1px solid var(--rule);
       background:
         repeating-linear-gradient(
@@ -697,7 +703,12 @@
         ),
         var(--paper-2);
       overflow: hidden;
+      touch-action: pan-y;
+      cursor: grab;
+      user-select: none;
     }
+    .stage-frame.is-dragging { cursor: grabbing; }
+    .stage-frame img { pointer-events: none; }
     .stage-frame::before,
     .stage-frame::after,
     .stage-corner {
@@ -718,12 +729,17 @@
       inset: 0;
       display: grid;
       place-items: center;
-      padding: 32px;
+      padding: 24px;
       opacity: 0;
-      transition: opacity 0.45s ease;
+      transform: scale(0.985);
+      transition: opacity 0.4s ease, transform 0.4s ease;
       pointer-events: none;
     }
-    .stage-slide.is-active { opacity: 1; pointer-events: auto; }
+    .stage-slide.is-active {
+      opacity: 1;
+      transform: scale(1);
+      pointer-events: auto;
+    }
     .stage-slide img {
       max-width: 100%;
       max-height: 100%;
@@ -732,6 +748,35 @@
       object-fit: contain;
       box-shadow: 0 24px 60px rgba(0,0,0,0.35), 0 0 0 1px rgba(17,17,17,0.08);
     }
+
+    /* Floating edge controls — always reachable */
+    .stage-edge {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 6;
+      width: 48px;
+      height: 48px;
+      display: grid;
+      place-items: center;
+      background: rgba(244, 241, 234, 0.92);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      border: 1px solid var(--ink);
+      color: var(--ink);
+      font-family: var(--type-mono);
+      font-size: 18px;
+      cursor: pointer;
+      transition: background 0.16s ease, color 0.16s ease, transform 0.18s ease;
+    }
+    .stage-edge:hover {
+      background: var(--ink);
+      color: var(--paper);
+    }
+    .stage-edge.prev { left: 14px; }
+    .stage-edge.next { right: 14px; }
+    .stage-edge.prev:hover { transform: translateY(-50%) translateX(-2px); }
+    .stage-edge.next:hover { transform: translateY(-50%) translateX(2px); }
     .stage-index {
       position: absolute;
       top: 16px;
@@ -804,46 +849,29 @@
     }
     .stage-meta .page { color: var(--ink); font-weight: 600; }
 
-    /* Chip / arrow controls */
+    /* Chip strip (the side arrows are now overlaid; this is the bottom rail) */
     .stage-controls {
       grid-column: 1 / span 12;
       display: grid;
-      grid-template-columns: auto 1fr auto;
-      gap: 14px;
+      grid-template-columns: 1fr;
+      gap: 10px;
       align-items: center;
-      padding-top: 8px;
     }
-    .stage-arrow {
-      width: 44px;
-      height: 44px;
-      border: 1px solid var(--ink);
-      background: var(--paper);
-      color: var(--ink);
-      display: grid;
-      place-items: center;
-      cursor: pointer;
-      font-family: var(--type-mono);
-      font-size: 18px;
-      transition: background 0.16s ease, color 0.16s ease;
-    }
-    .stage-arrow:hover { background: var(--ink); color: var(--paper); }
-    .stage-arrow:disabled { opacity: 0.3; cursor: not-allowed; }
-    .stage-arrow:disabled:hover { background: var(--paper); color: var(--ink); }
 
     .stage-chips {
       display: grid;
       grid-auto-flow: column;
       grid-auto-columns: 1fr;
-      gap: 8px;
+      gap: 6px;
     }
     .stage-chip {
       position: relative;
-      padding: 14px 12px 12px;
+      padding: 10px 10px 8px;
       background: var(--paper);
       border: 1px solid var(--rule-soft);
       color: var(--ink-mute);
       font-family: var(--type-mono);
-      font-size: 10.5px;
+      font-size: 10px;
       letter-spacing: 0.1em;
       text-transform: uppercase;
       text-align: left;
@@ -851,15 +879,15 @@
       transition: background 0.16s ease, color 0.16s ease, border-color 0.16s ease;
       display: flex;
       flex-direction: column;
-      gap: 4px;
+      gap: 2px;
       overflow: hidden;
       min-width: 0;
     }
     .stage-chip .ch-num    { font-weight: 600; color: var(--ink); font-size: 11px; }
     .stage-chip .ch-domain {
       color: var(--ink-mute);
-      font-size: 10px;
-      letter-spacing: 0.05em;
+      font-size: 9.5px;
+      letter-spacing: 0.04em;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
@@ -875,10 +903,7 @@
       transition: transform 0.2s ease;
     }
     .stage-chip:hover { border-color: var(--ink); color: var(--ink); }
-    .stage-chip.is-active {
-      border-color: var(--ink);
-      background: var(--paper);
-    }
+    .stage-chip.is-active { border-color: var(--ink); }
     .stage-chip.is-active::before { background: var(--accent); transform: scaleX(1); }
     .stage-chip.is-active .ch-num { color: var(--accent); }
     .stage-chip.is-active .ch-domain { color: var(--ink); }
@@ -1169,14 +1194,16 @@
       .plate-left { grid-column: 1 / span 12; margin-bottom: 24px; }
       .specimen { grid-column: 1 / span 12; }
 
-      .stage-frame { aspect-ratio: 4 / 3; }
-      .stage-slide { padding: 18px; }
+      .stage-frame { aspect-ratio: 4 / 3; max-height: 56vh; }
+      .stage-slide { padding: 14px; }
       .stage-meta { grid-template-columns: 1fr; gap: 6px; }
       .stage-meta .page { justify-self: end; }
-      .stage-chips { grid-auto-flow: row; grid-template-columns: repeat(5, 1fr); }
+      .stage-chips { grid-template-columns: repeat(5, 1fr); }
       .stage-chip { padding: 8px 6px; }
       .stage-chip .ch-domain { display: none; }
-      .stage-arrow { width: 40px; height: 40px; }
+      .stage-edge { width: 38px; height: 38px; font-size: 16px; }
+      .stage-edge.prev { left: 8px; }
+      .stage-edge.next { right: 8px; }
 
       .spec-row .k { grid-column: 1 / span 5; }
       .spec-row .v { grid-column: 6 / span 7; }
@@ -1530,6 +1557,9 @@
           <figure class="stage-slide" data-domain="theverge.com" data-title="The Verge archives" data-page="P.20">
             <img src="sample-verge.png" alt="Arcks preview card on The Verge archives result" loading="lazy">
           </figure>
+
+          <button class="stage-edge prev" id="stagePrev" aria-label="Previous plate">←</button>
+          <button class="stage-edge next" id="stageNext" aria-label="Next plate">→</button>
         </div>
 
         <div class="stage-meta">
@@ -1539,7 +1569,6 @@
         </div>
 
         <div class="stage-controls">
-          <button class="stage-arrow" id="stagePrev" aria-label="Previous plate">←</button>
           <div class="stage-chips" id="stageChips">
             <button class="stage-chip is-active" data-target="0">
               <span class="ch-num">№01</span>
@@ -1562,11 +1591,10 @@
               <span class="ch-domain">theverge.com</span>
             </button>
           </div>
-          <button class="stage-arrow" id="stageNext" aria-label="Next plate">→</button>
         </div>
 
         <div class="stage-hint">
-          Use <kbd>←</kbd> <kbd>→</kbd> to flip plates · click any chip to jump
+          Swipe · click the edges · or press <kbd>←</kbd> <kbd>→</kbd>
         </div>
       </div>
     </div>
@@ -1790,6 +1818,42 @@
         if (tag === 'INPUT' || tag === 'TEXTAREA') return;
         if (e.key === 'ArrowLeft')  { e.preventDefault(); show(current - 1); }
         if (e.key === 'ArrowRight') { e.preventDefault(); show(current + 1); }
+      });
+
+      // Swipe + mouse drag
+      const frame = stage.querySelector('.stage-frame');
+      const SWIPE_THRESHOLD = 50;
+      let dragStartX = null;
+      let dragStartY = null;
+      let pointerId  = null;
+
+      frame.addEventListener('pointerdown', e => {
+        if (e.target.closest('.stage-edge')) return;
+        dragStartX = e.clientX;
+        dragStartY = e.clientY;
+        pointerId  = e.pointerId;
+        frame.classList.add('is-dragging');
+        try { frame.setPointerCapture(e.pointerId); } catch (_) {}
+      });
+
+      frame.addEventListener('pointerup', e => {
+        if (dragStartX === null || e.pointerId !== pointerId) return;
+        const dx = e.clientX - dragStartX;
+        const dy = e.clientY - dragStartY;
+        dragStartX = null;
+        dragStartY = null;
+        pointerId  = null;
+        frame.classList.remove('is-dragging');
+        if (Math.abs(dx) > SWIPE_THRESHOLD && Math.abs(dx) > Math.abs(dy)) {
+          show(dx < 0 ? current + 1 : current - 1);
+        }
+      });
+
+      frame.addEventListener('pointercancel', () => {
+        dragStartX = null;
+        dragStartY = null;
+        pointerId  = null;
+        frame.classList.remove('is-dragging');
       });
     })();
   </script>
