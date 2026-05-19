@@ -11,7 +11,10 @@ const ALLOWED_ORIGINS = [
 
 // KV cache TTL
 const CACHE_TTL_SECONDS = 1800; // 30 minutes
-const CACHE_VERSION = "v2";
+// v3: introduced strict validateSummary + field-length caps. Bumping the
+// version invalidates every pre-hardening entry on the first redeploy so
+// stale JSON-blob bullets stop being served from KV.
+const CACHE_VERSION = "v3";
 
 // Allowed icon names for bullet points (Lucide icon set)
 const ALLOWED_ICONS = [

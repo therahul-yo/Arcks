@@ -913,15 +913,20 @@
     } catch { return urlStr; }
   }
 
+  // Hard caps so a misbehaving worker / cached entry can't render a wall of
+  // text inside the card.
+  const MAX_BULLET_LEN = 240;
+
   function normalizeBullets(data) {
     if (Array.isArray(data.bullets) && data.bullets.length) {
-      return data.bullets.slice(0, 3).map(String).filter(Boolean);
+      const repaired = repairBullets(data.bullets);
+      if (repaired.length) return repaired.slice(0, 3);
     }
 
     const text = data.summary || data.description || '';
     const sentences = text
       .split(/(?<=[.!?])\s+/)
-      .map(sentence => sentence.trim())
+      .map(sentence => cleanBullet(sentence))
       .filter(Boolean);
 
     if (sentences.length) {
@@ -929,6 +934,61 @@
     }
 
     return ['Preview is ready. Open the page for the full context.'];
+  }
+
+  // Some providers / stale cache entries shove the entire AI JSON payload into
+  // bullets[0]. Detect that, try to parse it back into a real object, and lift
+  // its bullets / summary up. If we can't recover anything sensible, drop the
+  // bullet entirely rather than render raw JSON.
+  function repairBullets(bullets) {
+    const out = [];
+    for (const raw of bullets) {
+      const str = cleanBullet(raw);
+      if (!str) continue;
+      if (looksLikeJson(str)) {
+        const recovered = recoverFromJsonBlob(str);
+        if (recovered && recovered.length) {
+          for (const r of recovered) {
+            if (out.length >= 3) break;
+            out.push(cleanBullet(r));
+          }
+          continue;
+        }
+        // Couldn't recover — drop this entry; do not render raw JSON.
+        continue;
+      }
+      out.push(str);
+    }
+    return out.filter(Boolean);
+  }
+
+  function looksLikeJson(s) {
+    const trimmed = s.trim();
+    if (trimmed.length < 12) return false;
+    if (!(trimmed.startsWith('{') || trimmed.startsWith('['))) return false;
+    return /"(title|headline|summary|bullets)"\s*:/i.test(trimmed);
+  }
+
+  function recoverFromJsonBlob(s) {
+    try {
+      const match = s.match(/\{[\s\S]*\}/);
+      if (!match) return null;
+      const obj = JSON.parse(match[0]);
+      if (Array.isArray(obj.bullets) && obj.bullets.length) {
+        return obj.bullets.map(String);
+      }
+      const fallback = obj.summary || obj.headline || obj.title;
+      return fallback ? [String(fallback)] : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function cleanBullet(value) {
+    let str = String(value == null ? '' : value).trim();
+    if (!str) return '';
+    if (str.length > MAX_BULLET_LEN) str = str.slice(0, MAX_BULLET_LEN - 1).trimEnd() + '…';
+    return str;
   }
 
   function formatInsight(text) {
