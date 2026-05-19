@@ -28,6 +28,8 @@ const MODEL_PRESETS = {
   ]
 };
 
+const TEST_TIMEOUT_MS = 5000;
+
 const enabledInput = document.getElementById('enabled');
 const hoverDelayInput = document.getElementById('hoverDelay');
 const workerUrlInput = document.getElementById('workerUrl');
@@ -41,26 +43,56 @@ const resetButton = document.getElementById('reset');
 const statusEl = document.getElementById('status');
 const connectionStatus = document.getElementById('connectionStatus');
 const connectionText = document.getElementById('connectionText');
+const testWorkerBtn = document.getElementById('testWorker');
+const workerTestStatus = document.getElementById('workerTestStatus');
+const extIdEl = document.getElementById('extId');
+const copyExtIdBtn = document.getElementById('copyExtId');
 
 let currentSettings = { ...DEFAULT_SETTINGS };
+let dirty = false;
 
 document.addEventListener('DOMContentLoaded', loadSettings);
 
 saveButton.addEventListener('click', saveSettings);
 resetButton.addEventListener('click', resetSettings);
-workerUrlInput.addEventListener('input', updateConnectionStatus);
+workerUrlInput.addEventListener('input', () => {
+  markDirty();
+  updateConnectionStatus();
+  clearTestStatus();
+});
 providerInput.addEventListener('change', () => {
+  markDirty();
   const provider = providerInput.value;
   populateModelPresets(provider);
   setModelValue(getStoredModelForProvider(provider));
   updateModelControls();
 });
-modelPresetInput.addEventListener('change', updateModelControls);
+modelPresetInput.addEventListener('change', () => { markDirty(); updateModelControls(); });
+customModelInput.addEventListener('input', markDirty);
+hoverDelayInput.addEventListener('input', markDirty);
+enabledInput.addEventListener('change', markDirty);
+testWorkerBtn.addEventListener('click', testWorkerConnection);
+copyExtIdBtn.addEventListener('click', copyExtensionId);
+
+window.addEventListener('beforeunload', (event) => {
+  if (!dirty) return;
+  event.preventDefault();
+  event.returnValue = '';
+});
 
 async function loadSettings() {
   const settings = await chrome.storage.sync.get(DEFAULT_SETTINGS);
   applySettings(settings);
+  populateExtensionId();
+  dirty = false; // applying stored values isn't a user edit
 }
+
+function populateExtensionId() {
+  const id = (chrome.runtime && chrome.runtime.id) || '';
+  extIdEl.textContent = id || 'unavailable';
+}
+
+function markDirty() { dirty = true; }
 
 function applySettings(settings) {
   currentSettings = { ...DEFAULT_SETTINGS, ...settings };
@@ -106,15 +138,101 @@ async function saveSettings() {
 
   await chrome.storage.sync.set(nextSettings);
   currentSettings = { ...currentSettings, ...nextSettings };
+  dirty = false;
 
   updateConnectionStatus();
   showStatus('Settings saved. Refresh open pages to apply content-script changes.', 'success');
 }
 
 async function resetSettings() {
+  if (!confirm('Reset all settings to recommended defaults? This will overwrite your current values.')) return;
   applySettings(DEFAULT_SETTINGS);
   await chrome.storage.sync.set(DEFAULT_SETTINGS);
+  dirty = false;
   showStatus('Settings reset to recommended defaults.', 'success');
+}
+
+async function testWorkerConnection() {
+  const workerUrl = workerUrlInput.value.trim();
+  if (!isValidWorkerUrl(workerUrl)) {
+    setTestStatus('Enter a valid https:// URL first.', 'fail');
+    return;
+  }
+
+  testWorkerBtn.disabled = true;
+  setTestStatus('Testing…');
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TEST_TIMEOUT_MS);
+  const started = Date.now();
+
+  try {
+    // Prefer /health (added in worker hardening commits) — falls back to a
+    // minimal POST if the worker hasn't been redeployed yet.
+    let res;
+    try {
+      res = await fetch(joinUrl(workerUrl, '/health'), { method: 'GET', signal: controller.signal });
+      if (res.status === 404 || res.status === 405) throw new Error('no-health');
+    } catch (err) {
+      if (err.name === 'AbortError') throw err;
+      res = await fetch(workerUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: 'https://example.com', test: true }),
+        signal: controller.signal
+      });
+    }
+    const elapsed = Date.now() - started;
+    if (res.ok) {
+      setTestStatus(`OK · ${elapsed}ms`, 'ok');
+    } else {
+      setTestStatus(`HTTP ${res.status} · ${elapsed}ms`, 'fail');
+    }
+  } catch (err) {
+    if (err.name === 'AbortError') {
+      setTestStatus(`Timed out after ${TEST_TIMEOUT_MS / 1000}s`, 'fail');
+    } else {
+      setTestStatus('Could not reach worker', 'fail');
+    }
+  } finally {
+    clearTimeout(timer);
+    testWorkerBtn.disabled = false;
+  }
+}
+
+function setTestStatus(message, tone) {
+  workerTestStatus.textContent = message;
+  workerTestStatus.classList.remove('ok', 'fail');
+  if (tone) workerTestStatus.classList.add(tone);
+}
+
+function clearTestStatus() {
+  workerTestStatus.textContent = '';
+  workerTestStatus.classList.remove('ok', 'fail');
+}
+
+function joinUrl(base, path) {
+  try {
+    const u = new URL(base);
+    u.pathname = path;
+    u.search = '';
+    return u.toString();
+  } catch {
+    return base.replace(/\/?$/, '') + path;
+  }
+}
+
+async function copyExtensionId() {
+  const id = (chrome.runtime && chrome.runtime.id) || '';
+  if (!id) return;
+  try {
+    await navigator.clipboard.writeText(id);
+    const original = copyExtIdBtn.textContent;
+    copyExtIdBtn.textContent = 'Copied';
+    setTimeout(() => { copyExtIdBtn.textContent = original; }, 1500);
+  } catch {
+    showStatus('Could not copy — select the field manually.', 'error');
+  }
 }
 
 function isValidWorkerUrl(urlStr) {
