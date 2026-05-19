@@ -167,6 +167,27 @@
       font-size:11px; font-weight:650; color:rgba(255,255,255,0.68);
       letter-spacing:0; text-transform:none;
       overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+
+    .arcks-meta {
+      flex-shrink: 0;
+      font-size: 10px;
+      font-weight: 650;
+      letter-spacing: 0.02em;
+      color: rgba(255,255,255,0.58);
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 999px;
+      padding: 2px 8px;
+      line-height: 1.4;
+      white-space: nowrap;
+    }
+    .arcks-meta.is-cached {
+      color: rgba(160, 220, 180, 0.92);
+      background: rgba(80, 200, 130, 0.08);
+      border-color: rgba(80, 200, 130, 0.18);
     }
 
     .arcks-headline {
@@ -354,6 +375,17 @@
       .arcks-skeleton-header { background: rgba(17,17,17,0.06); }
       .arcks-skeleton-title  { background: rgba(17,17,17,0.09); }
       .arcks-skeleton-line   { background: rgba(17,17,17,0.05); }
+
+      .arcks-meta {
+        color: rgba(17,17,17,0.62);
+        background: rgba(17,17,17,0.05);
+        border-color: rgba(17,17,17,0.08);
+      }
+      .arcks-meta.is-cached {
+        color: #1f7a44;
+        background: rgba(80, 180, 110, 0.12);
+        border-color: rgba(80, 180, 110, 0.25);
+      }
 
       .arcks-error { color: #b3261e; }
     }
@@ -548,11 +580,13 @@
     const title = data.title || data.headline || hostname;
     const headline = data.headline || data.summary || data.description || title;
     const bullets = normalizeBullets(data);
+    const metaHtml = buildMetaPill(data);
 
     popupEl.innerHTML = `
       <div class="arcks-eyebrow">
         <img class="arcks-favicon" src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(hostname)}&sz=32" alt="">
         <span class="arcks-host">${escapeHtml(hostname)}</span>
+        ${metaHtml}
       </div>
       <h3 class="arcks-headline">${formatInsight(headline)}</h3>
       <ul class="arcks-insights">
@@ -622,14 +656,27 @@
   function getCached(url) {
     const entry = urlCache.get(url);
     if (entry && (Date.now() - entry.timestamp) < CACHE_DURATION) {
-      return { title: entry.title, headline: entry.headline, summary: entry.summary, bullets: entry.bullets };
+      // Local cache hit — mark as cached for the meta pill, no latency.
+      return {
+        title: entry.title,
+        headline: entry.headline,
+        summary: entry.summary,
+        bullets: entry.bullets,
+        _cached: true
+      };
     }
     if (entry) urlCache.delete(url);
     return null;
   }
 
   function setCache(url, data) {
-    urlCache.set(url, { ...data, timestamp: Date.now() });
+    urlCache.set(url, {
+      title: data.title,
+      headline: data.headline,
+      summary: data.summary,
+      bullets: data.bullets,
+      timestamp: Date.now()
+    });
   }
 
   // ===== BACKGROUND CALL =====
@@ -877,6 +924,20 @@
     };
 
     return `<svg class="arcks-insight-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">${paths[name]}</svg>`;
+  }
+
+  function buildMetaPill(data) {
+    const cached = data && data._cached === true;
+    const latency = data && Number.isFinite(data._latencyMs) ? Math.round(data._latencyMs) : null;
+    if (!cached && latency === null) return '';
+
+    const cls = cached ? 'arcks-meta is-cached' : 'arcks-meta';
+    let label = '';
+    if (cached && latency !== null) label = `Cached · ${latency}ms`;
+    else if (cached)                label = 'Cached';
+    else                            label = `${latency}ms`;
+
+    return `<span class="${cls}" title="${cached ? 'Served from cache' : 'Live response'}">${escapeHtml(label)}</span>`;
   }
 
   function shareIcon() {
