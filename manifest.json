@@ -30,8 +30,29 @@
   "content_scripts": [
     {
       "matches": [
-        "http://*/*",
-        "https://*/*"
+        "*://www.google.com/search*",
+        "*://www.google.co.uk/search*",
+        "*://www.google.co.in/search*",
+        "*://www.google.co.jp/search*",
+        "*://www.google.co.kr/search*",
+        "*://www.google.co.id/search*",
+        "*://www.google.com.au/search*",
+        "*://www.google.com.br/search*",
+        "*://www.google.com.mx/search*",
+        "*://www.google.com.sg/search*",
+        "*://www.google.com.tr/search*",
+        "*://www.google.ca/search*",
+        "*://www.google.de/search*",
+        "*://www.google.fr/search*",
+        "*://www.google.es/search*",
+        "*://www.google.it/search*",
+        "*://www.google.nl/search*",
+        "*://www.google.pl/search*",
+        "*://www.google.ru/search*",
+        "*://www.google.se/search*",
+        "*://www.google.ch/search*",
+        "*://www.google.be/search*",
+        "*://www.google.ie/search*"
       ],
       "js": ["content.js"],
       "css": ["styles.css"],

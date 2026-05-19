@@ -684,16 +684,35 @@
     return new Promise((resolve, reject) => {
       const to = setTimeout(() => reject(new Error('Request timed out')), CALLBACK_TIMEOUT_MS);
 
-      chrome.runtime.sendMessage({ action: 'getSummary', url, pageHint }, (data) => {
+      // Guard: if the extension has been reloaded since this tab opened, the
+      // runtime connection is gone. sendMessage will throw synchronously.
+      try {
+        chrome.runtime.sendMessage({ action: 'getSummary', url, pageHint }, (data) => {
+          clearTimeout(to);
+          if (chrome.runtime.lastError) {
+            reject(toFriendlyRuntimeError(chrome.runtime.lastError.message));
+            return;
+          }
+          if (data?.error) { reject(new Error(data.error)); return; }
+          resolve(data);
+        });
+      } catch (err) {
         clearTimeout(to);
-        if (chrome.runtime.lastError) {
-          reject(new Error(chrome.runtime.lastError.message));
-          return;
-        }
-        if (data?.error) { reject(new Error(data.error)); return; }
-        resolve(data);
-      });
+        reject(toFriendlyRuntimeError(err && err.message));
+      }
     });
+  }
+
+  function toFriendlyRuntimeError(message) {
+    const text = String(message || '');
+    if (/context invalidated|message port closed|disconnected/i.test(text)) {
+      // Extension was reloaded; the page needs a refresh for things to work
+      // again. Tag it so the caller can decide to hide silently.
+      const err = new Error('Reload the page to reconnect Arcks');
+      err.recoverable = true;
+      return err;
+    }
+    return new Error(text || 'Background unavailable');
   }
 
   // ===== HOVER HANDLER =====
@@ -735,6 +754,12 @@
       }
     } catch (error) {
       if (currentRequestId !== requestId) return;
+      // Extension reloaded mid-session — page reload required. Don't render
+      // the red error, just dismiss; the user can refresh the tab if needed.
+      if (error && error.recoverable) {
+        hidePopup(true);
+        return;
+      }
       showError(popupEl, error.message || 'Failed to load preview');
     }
   }
@@ -805,23 +830,14 @@
   let warnedNoSelectorMatch = false;
 
   function isSearchResultLink(link, url) {
+    // Hard scope: Arcks only fires on Google Search results pages. Any other
+    // host gets a definitive "no" so we never preview inside random sites.
+    if (!isGooglePage()) return false;
     if (!link.href || !url) return false;
     try {
       const hostname = new URL(url).hostname.toLowerCase();
-      if (isGooglePage()) {
-        if (hostname.includes('google.')) return false;
-        return isLikelyGoogleResultLink(link);
-      }
-
-      if (hostname === location.hostname.toLowerCase() && link.hash && link.pathname === location.pathname) {
-        return false;
-      }
-
-      if (!link.textContent.trim() && !link.querySelector('img, svg')) {
-        return false;
-      }
-
-      return true;
+      if (hostname.includes('google.')) return false; // skip Google-internal links
+      return isLikelyGoogleResultLink(link);
     } catch { return false; }
   }
 
@@ -1003,6 +1019,11 @@
   }
 
   // ===== INITIALIZE =====
+  // Only attach mouse handlers on Google Search results pages. On any other
+  // host the content script loads, evaluates this block, and exits — no
+  // listeners, no popup container, no work. This is the hard scope guard.
+  if (!isGooglePage()) return;
+
   document.addEventListener('mouseover', onMouseEnter, { passive: true });
   document.addEventListener('mouseout', onMouseLeave, { passive: true });
 
