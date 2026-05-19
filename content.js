@@ -6,6 +6,13 @@
 (function() {
   'use strict';
 
+  // ===== CONSTANTS =====
+  const CACHE_DURATION = 10 * 60 * 1000;       // 10 min — match worker KV TTL ceiling
+  const POPUP_Z_INDEX = 2147483647;            // max int32; sits above everything reasonable
+  const POPUP_FADE_MS = 220;                   // matches CSS transition duration
+  const CALLBACK_TIMEOUT_MS = 12000;           // upper bound for background→worker round trip
+  const HIDE_DELAY_MS = 220;                   // grace period after mouseleave
+
   // ===== STATE =====
   let currentHoveredLink = null;
   let hoverTimeout = null;
@@ -18,7 +25,6 @@
   let currentHoveredUrl = '';
 
   // Client-side cache: URL -> { title, summary, bullets, timestamp }
-  const CACHE_DURATION = 10 * 60 * 1000;
   const urlCache = new Map();
 
   chrome.runtime.sendMessage({ action: 'getSettings' }, (response) => {
@@ -100,7 +106,7 @@
   const POPUP_STYLES = `
     .arcks-popup {
       position: fixed;
-      z-index: 2147483647;
+      z-index: ${POPUP_Z_INDEX};
       width: 360px;
       max-width: min(88vw, 360px);
       min-height: 164px;
@@ -431,6 +437,7 @@
   // ===== RENDER =====
   function showLoading(linkRect, url) {
     createPopupContainer();
+    if (!shadowRoot) return null; // container failed to attach (extremely rare)
     clearHideTimeout();
 
     const hostname = getHostname(url);
@@ -528,12 +535,12 @@
 
     setTimeout(() => {
       if (el.classList.contains('hiding')) el.remove();
-    }, 220);
+    }, POPUP_FADE_MS);
   }
 
   function scheduleHide() {
     clearHideTimeout();
-    hideTimeout = setTimeout(() => hidePopup(), 220);
+    hideTimeout = setTimeout(() => hidePopup(), HIDE_DELAY_MS);
   }
 
   function clearHideTimeout() {
@@ -557,7 +564,7 @@
   // ===== BACKGROUND CALL =====
   function callBackground(url, pageHint = '') {
     return new Promise((resolve, reject) => {
-      const to = setTimeout(() => reject(new Error('Request timed out')), 15000);
+      const to = setTimeout(() => reject(new Error('Request timed out')), CALLBACK_TIMEOUT_MS);
 
       chrome.runtime.sendMessage({ action: 'getSummary', url, pageHint }, (data) => {
         clearTimeout(to);
@@ -586,6 +593,7 @@
     const linkRect = link.getBoundingClientRect();
     const pageHint = getLinkContext(link);
     const popupEl = showLoading(linkRect, url);
+    if (!popupEl) return; // shadow DOM unavailable
 
     const cached = getCached(url);
     if (cached) {
@@ -818,5 +826,22 @@
   // ===== INITIALIZE =====
   document.addEventListener('mouseover', onMouseEnter, { passive: true });
   document.addEventListener('mouseout', onMouseLeave, { passive: true });
+
+  // Hide popup on scroll / resize — link rect goes stale and a floating card
+  // detached from its link is confusing UX.
+  let scrollHideRaf = 0;
+  function onViewportChange() {
+    if (scrollHideRaf) return;
+    scrollHideRaf = requestAnimationFrame(() => {
+      scrollHideRaf = 0;
+      clearTimeout(hoverTimeout);
+      currentHoveredLink = null;
+      currentHoveredUrl = '';
+      hidePopup(true);
+    });
+  }
+  window.addEventListener('scroll', onViewportChange, { passive: true, capture: true });
+  window.addEventListener('resize', onViewportChange, { passive: true });
+
   createPopupContainer();
 })();
