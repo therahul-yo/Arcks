@@ -252,6 +252,19 @@
       transform: translateY(-1px);
     }
 
+    .arcks-share:focus-visible,
+    .arcks-open:focus-visible {
+      outline: 2px solid rgba(122, 184, 255, 0.95);
+      outline-offset: 2px;
+      background: rgba(255,255,255,0.2);
+      color: #fff;
+    }
+
+    .arcks-share:focus:not(:focus-visible),
+    .arcks-open:focus:not(:focus-visible) {
+      outline: none;
+    }
+
     .arcks-share svg,
     .arcks-open svg {
       width:15px;
@@ -285,6 +298,19 @@
 
       .arcks-headline { font-size: 15px; }
       .arcks-insight { font-size: 13px; gap: 7px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .arcks-popup,
+      .arcks-popup.hiding {
+        transition: opacity 0.001s linear !important;
+        filter: none !important;
+        transform: none !important;
+      }
+      .arcks-popup.hiding { opacity: 0 !important; }
+      .arcks-share:hover,
+      .arcks-open:hover { transform: none; }
+      .arcks-skeleton { animation: none !important; }
     }
   `;
 
